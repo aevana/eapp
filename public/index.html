@@ -35,22 +35,14 @@
         <h2>Customer Management</h2>
         <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
       </div>
-
-      <!-- Search -->
       <div class="search-bar">
         <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
       </div>
-
       <div class="table-wrap">
         <table class="data-table" id="customer-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Mobile Number</th>
-              <th>Address</th>
-              <th>Registered On</th>
-              <th>Actions</th>
+              <th>#</th><th>Name</th><th>Mobile Number</th><th>Address</th><th>Registered On</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="customer-tbody">
@@ -66,8 +58,6 @@
         <h2>Bill Management</h2>
         <button class="btn btn-primary" onclick="openAddBillModal()">+ Add Bill</button>
       </div>
-
-      <!-- Filter row -->
       <div class="filter-row">
         <select id="bill-filter-status" onchange="loadBills()">
           <option value="">All Status</option>
@@ -76,23 +66,12 @@
         </select>
         <input type="text" id="bill-search" placeholder="🔍 Search by customer…" oninput="filterBills()" />
       </div>
-
       <div class="table-wrap">
-        <table class="data-table" id="bills-table">
+        <table class="data-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Customer</th>
-              <th>Start Date</th>
-              <th>Stop Date</th>
-              <th>Days</th>
-              <th>Qty</th>
-              <th>Per Day (₹)</th>
-              <th>Total (₹)</th>
-              <th>Collected (₹)</th>
-              <th>Pending (₹)</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>#</th><th>Customer</th><th>Start Date</th><th>Stop Date</th><th>Days</th>
+              <th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="bills-tbody">
@@ -109,16 +88,17 @@
         <div class="tracker-tabs">
           <button class="tracker-tab active" data-tracker="by-customer" onclick="switchTracker('by-customer')">By Customer</button>
           <button class="tracker-tab" data-tracker="by-bill" onclick="switchTracker('by-bill')">By Month / Year</button>
+          <button class="tracker-tab" data-tracker="balance-sheet" onclick="switchTracker('balance-sheet')">📒 Balance Sheet</button>
         </div>
       </div>
 
-      <!-- By Customer -->
+      <!-- ─── By Customer ─── -->
       <div id="tracker-by-customer" class="tracker-panel active">
-        <p class="hint">Click on a customer row to expand their bills.</p>
+        <p class="hint">Click on a customer row to expand their bills. Use 📱 WhatsApp to send a payment reminder to active customers.</p>
         <div id="tracker-customer-list"></div>
       </div>
 
-      <!-- By Month/Year -->
+      <!-- ─── By Month/Year ─── -->
       <div id="tracker-by-bill" class="tracker-panel">
         <div class="month-filter">
           <label>Month</label>
@@ -139,18 +119,8 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Customer</th>
-                <th>Mobile</th>
-                <th>Start Date</th>
-                <th>Stop Date</th>
-                <th>Days</th>
-                <th>Qty</th>
-                <th>Per Day (₹)</th>
-                <th>Total (₹)</th>
-                <th>Collected (₹)</th>
-                <th>Pending (₹)</th>
-                <th>Status</th>
+                <th>#</th><th>Customer</th><th>Mobile</th><th>Start Date</th><th>Stop Date</th>
+                <th>Days</th><th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
               </tr>
             </thead>
             <tbody id="tracker-bills-tbody">
@@ -159,13 +129,65 @@
           </table>
         </div>
       </div>
+
+      <!-- ─── Balance Sheet ─── -->
+      <div id="tracker-balance-sheet" class="tracker-panel">
+
+        <!-- Filter + action row -->
+        <div class="bs-toolbar">
+          <div class="month-filter">
+            <label>Month</label>
+            <select id="bs-filter-month">
+              <option value="1">January</option><option value="2">February</option>
+              <option value="3">March</option><option value="4">April</option>
+              <option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+            <label>Year</label>
+            <input type="number" id="bs-filter-year" value="2025" min="2000" max="2100" />
+            <button class="btn btn-primary" onclick="loadBalanceSheet()">View</button>
+          </div>
+          <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
+        </div>
+
+        <!-- Revenue hero card -->
+        <div id="bs-revenue-card"></div>
+
+        <!-- Stats grid -->
+        <div id="bs-stats-grid" class="bs-stats-grid"></div>
+
+        <!-- Comparison bars -->
+        <div id="bs-comparison"></div>
+
+        <!-- Bills for that month -->
+        <div id="bs-bills-section" style="margin-top:1.5rem;display:none;">
+          <h3 class="bs-section-title">Bills Active in this Month</h3>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Customer</th><th>Mobile</th><th>Qty</th>
+                  <th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="bs-bills-tbody">
+                <tr><td colspan="8" class="empty-row">Select month/year and click View.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /tracker-balance-sheet -->
+
     </section>
 
   </main>
 
   <!-- ════════════════ MODALS ════════════════ -->
 
-  <!-- Add Customer Modal -->
+  <!-- Add Customer -->
   <div id="modal-add-customer" class="modal-overlay" onclick="closeModalOutside(event,'modal-add-customer')">
     <div class="modal">
       <div class="modal-header">
@@ -193,7 +215,7 @@
     </div>
   </div>
 
-  <!-- Edit Customer Modal -->
+  <!-- Edit Customer -->
   <div id="modal-edit-customer" class="modal-overlay" onclick="closeModalOutside(event,'modal-edit-customer')">
     <div class="modal">
       <div class="modal-header">
@@ -222,7 +244,7 @@
     </div>
   </div>
 
-  <!-- Add Bill Modal -->
+  <!-- Add Bill -->
   <div id="modal-add-bill" class="modal-overlay" onclick="closeModalOutside(event,'modal-add-bill')">
     <div class="modal modal-wide">
       <div class="modal-header">
@@ -263,7 +285,7 @@
     </div>
   </div>
 
-  <!-- Update Bill Modal -->
+  <!-- Update Bill -->
   <div id="modal-update-bill" class="modal-overlay" onclick="closeModalOutside(event,'modal-update-bill')">
     <div class="modal modal-wide">
       <div class="modal-header">
@@ -293,14 +315,11 @@
             <input type="date" id="ub-stopdate" />
           </div>
         </div>
-
-        <!-- Live Calculation Preview -->
         <div class="calc-preview" id="ub-calc-preview">
           <span>Days: <strong id="prev-days">–</strong></span>
           <span>Total: <strong id="prev-total">₹–</strong></span>
           <span>Pending: <strong id="prev-pending">₹–</strong></span>
         </div>
-
         <div class="form-row">
           <div class="form-group">
             <label>Collected Amount (₹)</label>
@@ -315,7 +334,67 @@
     </div>
   </div>
 
-  <!-- Confirm Delete Modal -->
+  <!-- Add / Edit Monthly Charge -->
+  <div id="modal-monthly-charge" class="modal-overlay" onclick="closeModalOutside(event,'modal-monthly-charge')">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="mc-modal-title">Add Monthly Charge</h3>
+        <button class="modal-close" onclick="closeModal('modal-monthly-charge')">✕</button>
+      </div>
+      <form id="form-monthly-charge" onsubmit="submitMonthlyCharge(event)">
+        <input type="hidden" id="mc-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Month <span class="req">*</span></label>
+            <select id="mc-month" required>
+              <option value="1">January</option><option value="2">February</option>
+              <option value="3">March</option><option value="4">April</option>
+              <option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Year <span class="req">*</span></label>
+            <input type="number" id="mc-year" required min="2000" max="2100" value="2025" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Board Bill Amount (₹) <span class="req">*</span></label>
+            <input type="number" id="mc-projected-amount" required min="0" step="0.01" placeholder="Amount paid to electricity board" />
+          </div>
+          <div class="form-group">
+            <label>Bill Paid Date</label>
+            <input type="date" id="mc-bill-paid-date" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Units Charged (by board)</label>
+            <input type="number" id="mc-units-charged" min="0" step="0.01" placeholder="Actual units from board bill" />
+          </div>
+          <div class="form-group">
+            <label>Comments</label>
+            <input type="text" id="mc-comments" placeholder="Optional notes…" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:.5rem;">
+          <p class="hint" style="margin:0;">
+            💡 <strong>Units Projection:</strong> Each transformer set (qty) averages <strong>20–25 units/month</strong>.
+            The balance sheet will auto-calculate projected units from active bills in this month.
+          </p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-monthly-charge')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Delete -->
   <div id="modal-confirm-delete" class="modal-overlay" onclick="closeModalOutside(event,'modal-confirm-delete')">
     <div class="modal modal-sm">
       <div class="modal-header">

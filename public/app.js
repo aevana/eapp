@@ -1,34 +1,12 @@
-/* ════════════════════════════════════════════════════════════════
-   Electricity Bills Tracker — Frontend App
-   ════════════════════════════════════════════════════════════════ */
+// ── State ──────────────────────────────────────────────────────
+let allCustomers   = [];
+let allBills       = [];
+let trackerData    = [];   // by-customer tracker cache
+let lastBSData     = null; // last loaded balance-sheet payload
 
-const API = '';  // same-origin
-
-// ── State ─────────────────────────────────────────────────────────
-let allCustomers = [];
-let allBills = [];
-
-// ── Bootstrap ─────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  setupTabs();
-  loadCustomers();
-  loadBills();
-  loadTrackerByCustomer();
-
-  // Set default month/year filter to current month
-  const now = new Date();
-  document.getElementById('filter-month').value = now.getMonth() + 1;
-  document.getElementById('filter-year').value  = now.getFullYear();
-
-  // Wire up update-bill form live preview inputs
-  ['ub-startdate','ub-stopdate','ub-qty','ub-perday','ub-collected'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateBillPreview);
-  });
-});
-
-// ── Tab Navigation ─────────────────────────────────────────────────
-function setupTabs() {
+// ── Bootstrap ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Main tab navigation
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -38,8 +16,36 @@ function setupTabs() {
       if (btn.dataset.tab === 'tracker') loadTrackerByCustomer();
     });
   });
+
+  // Default month/year selectors to current month
+  const now = new Date();
+  document.getElementById('filter-month').value    = now.getMonth() + 1;
+  document.getElementById('filter-year').value     = now.getFullYear();
+  document.getElementById('bs-filter-month').value = now.getMonth() + 1;
+  document.getElementById('bs-filter-year').value  = now.getFullYear();
+
+  // Bill preview live listeners
+  ['ub-startdate', 'ub-stopdate', 'ub-qty', 'ub-perday'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateBillPreview);
+  });
+
+  setDateChip('today');
+  loadCustomers();
+  loadBills();
+  loadTrackerByCustomer();
+});
+
+// ── API helper ─────────────────────────────────────────────────
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
 }
 
+// ── Tracker tab switcher ───────────────────────────────────────
 function switchTracker(type) {
   document.querySelectorAll('.tracker-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tracker-panel').forEach(p => p.classList.remove('active'));
@@ -48,22 +54,9 @@ function switchTracker(type) {
   if (type === 'by-customer') loadTrackerByCustomer();
 }
 
-// ── API Helpers ────────────────────────────────────────────────────
-async function apiFetch(url, opts = {}) {
-  const res = await fetch(API + url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Request failed');
-  }
-  return res.json();
-}
-
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 //  CUSTOMERS
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 
 async function loadCustomers() {
   try {
@@ -72,91 +65,83 @@ async function loadCustomers() {
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-function renderCustomers(customers) {
+function renderCustomers(list) {
   const tbody = document.getElementById('customer-tbody');
-  if (!customers.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No customers found. Add your first customer!</td></tr>';
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No customers found.</td></tr>';
     return;
   }
-  tbody.innerHTML = customers.map((c, i) => `
+  tbody.innerHTML = list.map((c, i) => `
     <tr>
       <td>${i + 1}</td>
       <td><strong>${esc(c.name)}</strong></td>
-      <td>${esc(c.mobileNumber)}</td>
-      <td>${esc(c.address) || '<span style="color:var(--gray-400)">—</span>'}</td>
-      <td>${formatDate(c.createdAt)}</td>
-      <td>
-        <div class="actions-cell">
-          <button class="btn btn-icon btn-edit" onclick="openEditCustomer('${c.id}')">✏️ Edit</button>
-          <button class="btn btn-icon btn-del"  onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑️ Delete</button>
-        </div>
+      <td>${esc(c.mobile)}</td>
+      <td>${esc(c.address || '—')}</td>
+      <td>${fmtDate(c.createdAt)}</td>
+      <td class="actions-cell">
+        <button class="btn btn-icon btn-edit" onclick="openEditCustomer('${c.id}')">✏️ Edit</button>
+        <button class="btn btn-icon btn-del"  onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑 Delete</button>
       </td>
-    </tr>`).join('');
+    </tr>
+  `).join('');
 }
 
 function filterCustomers() {
   const q = document.getElementById('customer-search').value.toLowerCase();
-  const filtered = allCustomers.filter(c =>
-    c.name.toLowerCase().includes(q) || c.mobileNumber.includes(q)
-  );
-  renderCustomers(filtered);
+  renderCustomers(allCustomers.filter(c => c.name.toLowerCase().includes(q) || c.mobile.includes(q)));
 }
 
-// Add customer
 async function submitAddCustomer(e) {
   e.preventDefault();
+  const body = {
+    name:    document.getElementById('c-name').value.trim(),
+    mobile:  document.getElementById('c-mobile').value.trim(),
+    address: document.getElementById('c-address').value.trim(),
+  };
   try {
-    await apiFetch('/api/customers', {
-      method: 'POST',
-      body: JSON.stringify({
-        name:         document.getElementById('c-name').value.trim(),
-        mobileNumber: document.getElementById('c-mobile').value.trim(),
-        address:      document.getElementById('c-address').value.trim()
-      })
-    });
+    await apiFetch('/api/customers', { method: 'POST', body: JSON.stringify(body) });
     closeModal('modal-add-customer');
     document.getElementById('form-add-customer').reset();
-    showToast('Customer added successfully!', 'success');
-    await loadCustomers();
+    showToast('Customer added!', 'success');
+    loadCustomers();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-// Edit customer
 function openEditCustomer(id) {
   const c = allCustomers.find(x => x.id === id);
   if (!c) return;
   document.getElementById('ec-id').value      = c.id;
   document.getElementById('ec-name').value    = c.name;
-  document.getElementById('ec-mobile').value  = c.mobileNumber;
-  document.getElementById('ec-address').value = c.address;
+  document.getElementById('ec-mobile').value  = c.mobile;
+  document.getElementById('ec-address').value = c.address || '';
   openModal('modal-edit-customer');
 }
 
 async function submitEditCustomer(e) {
   e.preventDefault();
-  const id = document.getElementById('ec-id').value;
+  const id   = document.getElementById('ec-id').value;
+  const body = {
+    name:    document.getElementById('ec-name').value.trim(),
+    mobile:  document.getElementById('ec-mobile').value.trim(),
+    address: document.getElementById('ec-address').value.trim(),
+  };
   try {
-    await apiFetch(`/api/customers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        name:         document.getElementById('ec-name').value.trim(),
-        mobileNumber: document.getElementById('ec-mobile').value.trim(),
-        address:      document.getElementById('ec-address').value.trim()
-      })
-    });
+    await apiFetch(`/api/customers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
     closeModal('modal-edit-customer');
     showToast('Customer updated!', 'success');
-    await loadCustomers();
+    loadCustomers();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 //  BILLS
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 
 async function loadBills() {
+  const status = document.getElementById('bill-filter-status').value;
   try {
-    allBills = await apiFetch('/api/bills');
+    const url = status ? `/api/bills?status=${status}` : '/api/bills';
+    allBills = await apiFetch(url);
     renderBills(allBills);
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -167,301 +152,541 @@ function renderBills(bills) {
     tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found.</td></tr>';
     return;
   }
-  tbody.innerHTML = bills.map((b, i) => {
-    const cust = allCustomers.find(c => c.id === b.customerId) || {};
-    return `
+  tbody.innerHTML = bills.map((b, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td><strong>${esc(cust.name || '—')}</strong></td>
-      <td>${formatDate(b.startDate)}</td>
-      <td>${b.stopDate ? formatDate(b.stopDate) : '<span class="badge badge-active">Running</span>'}</td>
-      <td>${b.numberOfDays}</td>
+      <td><strong>${esc(b.customerName || '—')}</strong></td>
+      <td>${fmtDate(b.startDate)}</td>
+      <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
+      <td>${b.numberOfDays ?? '—'}</td>
       <td>${b.quantity}</td>
       <td>₹${b.perDayCharge}</td>
-      <td><strong>₹${b.total.toLocaleString()}</strong></td>
-      <td style="color:var(--success)">₹${(b.collectedAmount||0).toLocaleString()}</td>
-      <td style="color:${b.pendingAmount>0?'var(--danger)':'var(--success)'}">₹${b.pendingAmount.toLocaleString()}</td>
+      <td>₹${(b.total ?? 0).toLocaleString()}</td>
+      <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
-      <td>
-        <div class="actions-cell">
-          <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Update</button>
-          <button class="btn btn-icon btn-del"  onclick="confirmDelete('bill','${b.id}','bill #${i+1}')">🗑️ Delete</button>
-        </div>
+      <td class="actions-cell">
+        <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
+        ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
+        <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill #${i + 1}')">🗑 Delete</button>
       </td>
-    </tr>`;
-  }).join('');
+    </tr>
+  `).join('');
 }
 
 function filterBills() {
-  const q      = document.getElementById('bill-search').value.toLowerCase();
-  const status = document.getElementById('bill-filter-status').value;
-  const filtered = allBills.filter(b => {
-    const cust = allCustomers.find(c => c.id === b.customerId) || {};
-    const matchName = (cust.name || '').toLowerCase().includes(q);
-    const matchStatus = !status || b.status === status;
-    return matchName && matchStatus;
-  });
-  renderBills(filtered);
+  const q = document.getElementById('bill-search').value.toLowerCase();
+  renderBills(allBills.filter(b => (b.customerName || '').toLowerCase().includes(q)));
 }
 
-// Add bill
 function openAddBillModal() {
   populateCustomerDropdown('b-customer');
   setDateChip('today');
   openModal('modal-add-bill');
 }
 
-let activeDateChip = 'today';
 function setDateChip(chip) {
-  activeDateChip = chip;
-  ['today','yesterday','custom'].forEach(c =>
-    document.getElementById(`chip-${c}`).classList.toggle('active', c === chip)
-  );
+  ['today', 'yesterday', 'custom'].forEach(c => document.getElementById(`chip-${c}`)?.classList.remove('active'));
+  document.getElementById(`chip-${chip}`)?.classList.add('active');
   const inp = document.getElementById('b-startdate');
-  const today = new Date();
+  const now = new Date();
   if (chip === 'today') {
-    inp.value = toInputDate(today);
-    inp.style.display = '';
+    inp.value    = toDateStr(now);
+    inp.readOnly = true;
   } else if (chip === 'yesterday') {
-    const y = new Date(today); y.setDate(y.getDate() - 1);
-    inp.value = toInputDate(y);
-    inp.style.display = '';
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    inp.value    = toDateStr(y);
+    inp.readOnly = true;
   } else {
-    inp.value = '';
-    inp.style.display = '';
+    inp.value    = '';
+    inp.readOnly = false;
     inp.focus();
   }
 }
 
 async function submitAddBill(e) {
   e.preventDefault();
+  const body = {
+    customerId:   document.getElementById('b-customer').value,
+    startDate:    document.getElementById('b-startdate').value,
+    quantity:     parseInt(document.getElementById('b-qty').value),
+    perDayCharge: parseInt(document.getElementById('b-perday').value),
+  };
   try {
-    await apiFetch('/api/bills', {
-      method: 'POST',
-      body: JSON.stringify({
-        customerId:   document.getElementById('b-customer').value,
-        startDate:    document.getElementById('b-startdate').value,
-        quantity:     document.getElementById('b-qty').value,
-        perDayCharge: document.getElementById('b-perday').value
-      })
-    });
+    await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify(body) });
     closeModal('modal-add-bill');
     document.getElementById('form-add-bill').reset();
-    showToast('Bill added successfully!', 'success');
-    await loadBills();
+    showToast('Bill added!', 'success');
+    loadBills();
+    loadTrackerByCustomer();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-// Update bill
 function openUpdateBill(id) {
   const b = allBills.find(x => x.id === id);
   if (!b) return;
-  const cust = allCustomers.find(c => c.id === b.customerId) || {};
-
-  document.getElementById('ub-id').value         = b.id;
-  document.getElementById('ub-startdate').value  = b.startDate ? b.startDate.substring(0,10) : '';
-  document.getElementById('ub-stopdate').value   = b.stopDate  ? b.stopDate.substring(0,10)  : '';
+  const c = allCustomers.find(x => x.id === b.customerId);
+  document.getElementById('ub-customer-card').innerHTML = c
+    ? `<strong>${esc(c.name)}</strong> · ${esc(c.mobile)} · ${esc(c.address || '')}`
+    : '';
+  document.getElementById('ub-id').value        = b.id;
+  document.getElementById('ub-startdate').value  = b.startDate || '';
+  document.getElementById('ub-stopdate').value   = b.stopDate  || '';
   document.getElementById('ub-qty').value        = b.quantity;
   document.getElementById('ub-perday').value     = b.perDayCharge;
   document.getElementById('ub-collected').value  = b.collectedAmount || 0;
-
-  document.getElementById('ub-customer-card').innerHTML = `
-    <strong>${esc(cust.name || '—')}</strong>
-    📞 ${esc(cust.mobileNumber || '—')}
-    ${cust.address ? `<br>📍 ${esc(cust.address)}` : ''}
-  `;
-
-  updateBillPreview();
   openModal('modal-update-bill');
+  updateBillPreview();
 }
 
 function updateBillPreview() {
   const start     = document.getElementById('ub-startdate').value;
-  const stop      = document.getElementById('ub-stopdate').value || null;
-  const qty       = parseFloat(document.getElementById('ub-qty').value) || 0;
-  const perDay    = parseFloat(document.getElementById('ub-perday').value) || 0;
-  const collected = parseFloat(document.getElementById('ub-collected').value) || 0;
-
+  const stop      = document.getElementById('ub-stopdate').value;
+  const qty       = parseInt(document.getElementById('ub-qty').value)      || 0;
+  const perDay    = parseInt(document.getElementById('ub-perday').value)    || 0;
+  const collected = parseInt(document.getElementById('ub-collected').value) || 0;
   if (!start) return;
-  const s = new Date(start);
-  const e = stop ? new Date(stop) : new Date();
-  s.setHours(0,0,0,0); e.setHours(0,0,0,0);
-  const days    = Math.max(0, Math.floor((e - s) / 86400000));
-  const total   = days * perDay * qty;
+  const s    = new Date(start);
+  const e2   = stop ? new Date(stop) : new Date();
+  const days = Math.max(0, Math.ceil((e2 - s) / 86400000));
+  const total   = days * qty * perDay;
   const pending = Math.max(0, total - collected);
-
   document.getElementById('prev-days').textContent    = days;
-  document.getElementById('prev-total').textContent   = '₹' + total.toLocaleString();
-  document.getElementById('prev-pending').textContent = '₹' + pending.toLocaleString();
+  document.getElementById('prev-total').textContent   = `₹${total.toLocaleString()}`;
+  document.getElementById('prev-pending').textContent = `₹${pending.toLocaleString()}`;
 }
 
 async function submitUpdateBill(e) {
   e.preventDefault();
-  const id = document.getElementById('ub-id').value;
+  const id   = document.getElementById('ub-id').value;
+  const body = {
+    startDate:       document.getElementById('ub-startdate').value,
+    stopDate:        document.getElementById('ub-stopdate').value || null,
+    quantity:        parseInt(document.getElementById('ub-qty').value),
+    perDayCharge:    parseInt(document.getElementById('ub-perday').value),
+    collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
+  };
   try {
-    await apiFetch(`/api/bills/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        startDate:       document.getElementById('ub-startdate').value,
-        stopDate:        document.getElementById('ub-stopdate').value || null,
-        quantity:        document.getElementById('ub-qty').value,
-        perDayCharge:    document.getElementById('ub-perday').value,
-        collectedAmount: document.getElementById('ub-collected').value
-      })
-    });
+    await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify(body) });
     closeModal('modal-update-bill');
-    showToast('Bill updated successfully!', 'success');
-    await loadBills();
+    showToast('Bill updated!', 'success');
+    loadBills();
+    loadTrackerByCustomer();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  TRACKER
-// ══════════════════════════════════════════════════════════════════
+async function stopBill(id) {
+  try {
+    await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify({ stopDate: toDateStr(new Date()) }) });
+    showToast('Bill stopped!', 'warning');
+    loadBills();
+    loadTrackerByCustomer();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TRACKER – By Customer  (with WhatsApp reminder)
+// ══════════════════════════════════════════════════════════════
 
 async function loadTrackerByCustomer() {
   try {
-    const data = await apiFetch('/api/tracker/customers');
-    renderTrackerByCustomer(data);
-  } catch (e) { showToast(e.message, 'error'); }
+    trackerData = await apiFetch('/api/tracker/customers');
+    renderTrackerByCustomer(trackerData);
+  } catch (e) {
+    document.getElementById('tracker-customer-list').innerHTML =
+      '<p class="hint">Failed to load tracker data.</p>';
+  }
 }
 
 function renderTrackerByCustomer(data) {
   const container = document.getElementById('tracker-customer-list');
   if (!data.length) {
-    container.innerHTML = '<p class="hint">No customers yet.</p>';
+    container.innerHTML = '<p class="hint">No customers found.</p>';
     return;
   }
-  container.innerHTML = data.map(c => {
-    const totalAmt      = c.bills.reduce((s, b) => s + b.total, 0);
-    const totalCollected = c.bills.reduce((s, b) => s + (b.collectedAmount||0), 0);
-    const totalPending  = c.bills.reduce((s, b) => s + b.pendingAmount, 0);
-    const activeBills   = c.bills.filter(b => b.status === 'active').length;
 
-    const billRows = c.bills.length ? c.bills.map((b, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${b.quantity}</td>
-        <td>${formatDate(b.startDate)}</td>
-        <td>${b.stopDate ? formatDate(b.stopDate) : '—'}</td>
-        <td>${b.numberOfDays}</td>
-        <td>₹${b.perDayCharge}</td>
-        <td><strong>₹${b.total.toLocaleString()}</strong></td>
-        <td style="color:var(--success)">₹${(b.collectedAmount||0).toLocaleString()}</td>
-        <td style="color:${b.pendingAmount>0?'var(--danger)':'var(--success)'}">₹${b.pendingAmount.toLocaleString()}</td>
-        <td><span class="badge badge-${b.status}">${b.status}</span></td>
-      </tr>`).join('') :
-      '<tr><td colspan="10" class="empty-row">No bills for this customer.</td></tr>';
+  container.innerHTML = data.map(c => {
+    const activeBills    = c.bills.filter(b => b.status === 'active');
+    const totalPending   = c.bills.reduce((s, b) => s + (b.pendingAmount   || 0), 0);
+    const totalCollected = c.bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
+    const hasActive      = activeBills.length > 0;
 
     return `
-    <div class="tracker-customer-card" id="tcc-${c.id}">
-      <div class="tracker-customer-header" onclick="toggleTrackerCard('${c.id}')">
-        <div>
-          <div class="tracker-customer-name">${esc(c.name)}</div>
-          <div class="tracker-customer-meta">📞 ${esc(c.mobileNumber)}${c.address ? ' · ' + esc(c.address) : ''}</div>
+      <div class="tracker-customer-card" id="tcard-${c.id}">
+        <div class="tracker-customer-header" onclick="toggleCustomerCard('${c.id}')">
+          <div>
+            <div class="tracker-customer-name">
+              ${esc(c.name)}
+              <span style="font-weight:400;font-size:.85rem;color:#64748b;">· ${esc(c.mobile)}</span>
+            </div>
+            <div class="tracker-customer-meta">
+              ${c.bills.length} bill(s) · ${activeBills.length} active
+              · ₹${totalPending.toLocaleString()} pending
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.6rem;">
+            ${hasActive ? `
+              <button class="btn btn-whatsapp" title="Send WhatsApp reminder"
+                onclick="event.stopPropagation(); sendWhatsAppReminder('${c.id}')">
+                📱 WhatsApp
+              </button>` : ''}
+            <span class="tracker-chevron">▼</span>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:1rem;">
-          <span class="badge ${activeBills > 0 ? 'badge-active' : 'badge-stopped'}">${c.bills.length} bill${c.bills.length !== 1 ? 's' : ''}</span>
-          <span class="tracker-chevron">▼</span>
+
+        <div class="tracker-customer-body">
+          <div class="tracker-stats">
+            <span>Bills: <strong>${c.bills.length}</strong></span>
+            <span>Active: <strong>${activeBills.length}</strong></span>
+            <span>Collected: <strong>₹${totalCollected.toLocaleString()}</strong></span>
+            <span>Pending: <strong style="color:var(--danger)">₹${totalPending.toLocaleString()}</strong></span>
+          </div>
+          <div class="table-wrap" style="border:none;box-shadow:none;border-radius:0;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Start</th><th>Stop</th><th>Days</th>
+                  <th>Qty</th><th>Per Day</th><th>Total</th>
+                  <th>Collected</th><th>Pending</th><th>Status</th><th>Remind</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${c.bills.map((b, i) => `
+                  <tr>
+                    <td>${i + 1}</td>
+                    <td>${fmtDate(b.startDate)}</td>
+                    <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
+                    <td>${b.numberOfDays ?? '—'}</td>
+                    <td>${b.quantity}</td>
+                    <td>₹${b.perDayCharge}</td>
+                    <td>₹${(b.total ?? 0).toLocaleString()}</td>
+                    <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+                    <td style="color:var(--danger);font-weight:600;">
+                      ₹${(b.pendingAmount ?? 0).toLocaleString()}
+                    </td>
+                    <td><span class="badge badge-${b.status}">${b.status}</span></td>
+                    <td>
+                      ${b.status === 'active' ? `
+                        <button class="btn btn-whatsapp btn-icon"
+                          title="Remind via WhatsApp"
+                          onclick="sendWhatsAppBillReminder('${c.id}', '${b.id}')">
+                          📱
+                        </button>` : '—'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-      <div class="tracker-customer-body">
-        <div class="tracker-stats">
-          <span>Total Bills: <strong>${c.bills.length}</strong></span>
-          <span>Active: <strong>${activeBills}</strong></span>
-          <span>Total Amount: <strong>₹${totalAmt.toLocaleString()}</strong></span>
-          <span>Collected: <strong style="color:var(--success)">₹${totalCollected.toLocaleString()}</strong></span>
-          <span>Pending: <strong style="color:var(--danger)">₹${totalPending.toLocaleString()}</strong></span>
-        </div>
-        <div class="table-wrap" style="border:none;border-radius:0;box-shadow:none;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Set Qty</th>
-                <th>From Date</th>
-                <th>Stopped Date</th>
-                <th>No. of Days</th>
-                <th>Per Day (₹)</th>
-                <th>Total (₹)</th>
-                <th>Collected (₹)</th>
-                <th>Pending (₹)</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${billRows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>`;
+      </div>`;
   }).join('');
 }
 
-function toggleTrackerCard(id) {
-  const card = document.getElementById(`tcc-${id}`);
-  card.classList.toggle('expanded');
+function toggleCustomerCard(id) {
+  document.getElementById(`tcard-${id}`)?.classList.toggle('expanded');
 }
+
+// Send reminder for ALL active bills of a customer
+function sendWhatsAppReminder(customerId) {
+  const customer = trackerData.find(c => c.id === customerId);
+  if (!customer) return;
+
+  const activeBills  = customer.bills.filter(b => b.status === 'active');
+  const totalPending = activeBills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
+  if (!totalPending) { showToast('No pending amount for this customer.', 'warning'); return; }
+
+  const mobile = customer.mobile.replace(/\D/g, '');
+  const lines  = activeBills.map((b, i) =>
+    `${i + 1}. ${fmtDate(b.startDate)} → ${b.stopDate ? fmtDate(b.stopDate) : 'Running'} | Qty:${b.quantity} | Pending: ₹${(b.pendingAmount || 0).toLocaleString()}`
+  );
+  const msg = [
+    `Dear ${customer.name},`,
+    ``,
+    `This is a reminder for your pending electricity bill(s):`,
+    ...lines,
+    ``,
+    `Total Pending: ₹${totalPending.toLocaleString()}`,
+    ``,
+    `Please make the payment at your earliest convenience.`,
+    `Thank you!`,
+  ].join('\n');
+
+  window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// Send reminder for a specific bill
+function sendWhatsAppBillReminder(customerId, billId) {
+  const customer = trackerData.find(c => c.id === customerId);
+  if (!customer) return;
+  const bill = customer.bills.find(b => b.id === billId);
+  if (!bill) return;
+
+  const mobile  = customer.mobile.replace(/\D/g, '');
+  const pending = bill.pendingAmount || 0;
+  if (!pending) { showToast('No pending amount for this bill.', 'warning'); return; }
+
+  const msg = [
+    `Dear ${customer.name},`,
+    ``,
+    `Reminder for your electricity bill:`,
+    `  Period : ${fmtDate(bill.startDate)} → ${bill.stopDate ? fmtDate(bill.stopDate) : 'Running'}`,
+    `  Sets   : ${bill.quantity}`,
+    `  Total  : ₹${(bill.total || 0).toLocaleString()}`,
+    `  Paid   : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
+    `  Pending: ₹${pending.toLocaleString()}`,
+    ``,
+    `Please make the payment at your earliest convenience.`,
+    `Thank you!`,
+  ].join('\n');
+
+  window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TRACKER – By Month/Year
+// ══════════════════════════════════════════════════════════════
 
 async function loadTrackerByBill() {
   const month = document.getElementById('filter-month').value;
   const year  = document.getElementById('filter-year').value;
   try {
-    const data = await apiFetch(`/api/tracker/bills?month=${month}&year=${year}`);
-    renderTrackerByBill(data, month, year);
+    const data = await apiFetch(`/api/tracker/by-month?month=${month}&year=${year}`);
+    const { bills, summary } = data;
+
+    // Summary cards
+    document.getElementById('tracker-summary-cards').innerHTML = `
+      <div class="summary-card sc-total">
+        <div class="sc-label">Total Bills</div>
+        <div class="sc-value">${summary.totalBills}</div>
+      </div>
+      <div class="summary-card sc-total">
+        <div class="sc-label">Total Charged</div>
+        <div class="sc-value">₹${summary.totalCharged.toLocaleString()}</div>
+      </div>
+      <div class="summary-card sc-collected">
+        <div class="sc-label">Collected</div>
+        <div class="sc-value">₹${summary.totalCollected.toLocaleString()}</div>
+      </div>
+      <div class="summary-card sc-pending">
+        <div class="sc-label">Pending</div>
+        <div class="sc-value">₹${summary.totalPending.toLocaleString()}</div>
+      </div>
+    `;
+
+    const tbody = document.getElementById('tracker-bills-tbody');
+    if (!bills.length) {
+      tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found for this period.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = bills.map((b, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${esc(b.customerName)}</strong></td>
+        <td>${esc(b.customerMobile || '')}</td>
+        <td>${fmtDate(b.startDate)}</td>
+        <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
+        <td>${b.numberOfDays ?? '—'}</td>
+        <td>${b.quantity}</td>
+        <td>₹${b.perDayCharge}</td>
+        <td>₹${(b.total ?? 0).toLocaleString()}</td>
+        <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+        <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+      </tr>
+    `).join('');
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-function renderTrackerByBill(data, month, year) {
-  // Summary cards
-  const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  document.getElementById('tracker-summary-cards').innerHTML = `
-    <div class="summary-card">
-      <div class="sc-label">Period</div>
-      <div class="sc-value" style="font-size:1.1rem">${months[month]} ${year}</div>
-    </div>
-    <div class="summary-card">
-      <div class="sc-label">Total Bills</div>
-      <div class="sc-value">${data.totalBills}</div>
-    </div>
-    <div class="summary-card sc-total">
-      <div class="sc-label">Total Amount</div>
-      <div class="sc-value">₹${data.totalAmount.toLocaleString()}</div>
-    </div>
-    <div class="summary-card sc-collected">
-      <div class="sc-label">Collected</div>
-      <div class="sc-value">₹${data.totalCollected.toLocaleString()}</div>
-    </div>
-    <div class="summary-card sc-pending">
-      <div class="sc-label">Pending</div>
-      <div class="sc-value">₹${data.totalPending.toLocaleString()}</div>
+// ══════════════════════════════════════════════════════════════
+//  BALANCE SHEET
+// ══════════════════════════════════════════════════════════════
+
+const MONTH_NAMES = [
+  '', 'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+
+async function loadBalanceSheet() {
+  const month = document.getElementById('bs-filter-month').value;
+  const year  = document.getElementById('bs-filter-year').value;
+  try {
+    lastBSData = await apiFetch(`/api/balance-sheet?month=${month}&year=${year}`);
+    renderBalanceSheet(lastBSData);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function renderBalanceSheet(data) {
+  const { month, year, bills, monthlyCharge, summary, stats } = data;
+  const label = `${MONTH_NAMES[month]} ${year}`;
+  const hasCharge = !!monthlyCharge;
+
+  // ─── Revenue hero ────────────────────────────────────────────
+  const revenueClass = stats.revenue >= 0 ? 'bs-revenue-profit' : 'bs-revenue-loss';
+  const revenueLabel = stats.revenue >= 0 ? '📈 Profit' : '📉 Loss';
+  document.getElementById('bs-revenue-card').innerHTML = `
+    <div class="bs-revenue-card ${revenueClass}">
+      <div class="bs-revenue-label">${label} — Revenue</div>
+      <div class="bs-revenue-value">₹${Math.abs(stats.revenue).toLocaleString()}</div>
+      <div class="bs-revenue-sub">${revenueLabel}
+        &nbsp;=&nbsp; Collected ₹${summary.totalCollected.toLocaleString()}
+        &nbsp;−&nbsp; Board Bill ₹${stats.projectedAmount.toLocaleString()}
+      </div>
+      ${!hasCharge ? '<div class="bs-no-charge-hint">⚠️ No monthly charge recorded yet. Add one to see accurate revenue.</div>' : ''}
     </div>
   `;
 
-  const tbody = document.getElementById('tracker-bills-tbody');
-  if (!data.bills.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found for this period.</td></tr>';
+  // ─── Stats grid ──────────────────────────────────────────────
+  const unitsBar   = renderCompareBar(stats.unitsCharged, stats.unitsProjected, '₹', false);
+  document.getElementById('bs-stats-grid').innerHTML = `
+    <div class="bs-stat-card">
+      <div class="bs-stat-title">📦 Total Active Sets (Qty)</div>
+      <div class="bs-stat-value">${summary.totalActiveQty}</div>
+      <div class="bs-stat-hint">Avg ${summary.totalActiveQty * 20}–${summary.totalActiveQty * 25} units expected this month</div>
+    </div>
+    <div class="bs-stat-card">
+      <div class="bs-stat-title">⚡ Units Projected vs Charged</div>
+      <div class="bs-stat-row">
+        <span class="bs-stat-chip bs-chip-blue">Projected: <strong>${stats.unitsProjected}</strong></span>
+        <span class="bs-stat-chip bs-chip-orange">Board Charged: <strong>${stats.unitsCharged}</strong></span>
+      </div>
+      <div class="bs-stat-diff ${stats.unitsDiff >= 0 ? 'diff-over' : 'diff-under'}">
+        ${stats.unitsDiff >= 0
+          ? `+${stats.unitsDiff} units over projection`
+          : `${stats.unitsDiff} units under projection`}
+      </div>
+    </div>
+    <div class="bs-stat-card">
+      <div class="bs-stat-title">💰 Expected Charge vs Board Bill</div>
+      <div class="bs-stat-row">
+        <span class="bs-stat-chip bs-chip-blue">Billed to Customers: <strong>₹${summary.totalCharged.toLocaleString()}</strong></span>
+        <span class="bs-stat-chip bs-chip-orange">Board Bill: <strong>₹${stats.projectedAmount.toLocaleString()}</strong></span>
+      </div>
+      <div class="bs-stat-diff ${summary.totalCharged >= stats.projectedAmount ? 'diff-over' : 'diff-under'}">
+        ${summary.totalCharged >= stats.projectedAmount
+          ? `Billed ₹${(summary.totalCharged - stats.projectedAmount).toLocaleString()} more than board cost`
+          : `Board cost ₹${(stats.projectedAmount - summary.totalCharged).toLocaleString()} more than billed`}
+      </div>
+    </div>
+    <div class="bs-stat-card">
+      <div class="bs-stat-title">🧾 Charged vs Collected</div>
+      <div class="bs-stat-row">
+        <span class="bs-stat-chip bs-chip-blue">Total Charged: <strong>₹${summary.totalCharged.toLocaleString()}</strong></span>
+        <span class="bs-stat-chip bs-chip-green">Collected: <strong>₹${summary.totalCollected.toLocaleString()}</strong></span>
+      </div>
+      <div class="bs-collection-bar">
+        <div class="bs-collection-fill" style="width:${stats.collectionRate}%"></div>
+      </div>
+      <div class="bs-stat-hint">Collection rate: <strong>${stats.collectionRate}%</strong>
+        &nbsp;·&nbsp; Pending: <strong style="color:var(--danger)">₹${summary.totalPending.toLocaleString()}</strong>
+      </div>
+    </div>
+  `;
+
+  // ─── Monthly charge detail ───────────────────────────────────
+  if (hasCharge) {
+    document.getElementById('bs-comparison').innerHTML = `
+      <div class="bs-charge-detail">
+        <h4 class="bs-section-title">📋 Monthly Charge Details — ${label}</h4>
+        <div class="bs-charge-grid">
+          <div class="bs-charge-item"><span>Board Bill Paid</span><strong>₹${monthlyCharge.projectedAmount.toLocaleString()}</strong></div>
+          <div class="bs-charge-item"><span>Bill Paid Date</span><strong>${monthlyCharge.billPaidDate ? fmtDate(monthlyCharge.billPaidDate) : '—'}</strong></div>
+          <div class="bs-charge-item"><span>Units Charged</span><strong>${monthlyCharge.unitsCharged || '—'}</strong></div>
+          <div class="bs-charge-item"><span>Comments</span><strong>${esc(monthlyCharge.comments || '—')}</strong></div>
+        </div>
+        <div style="margin-top:.75rem;text-align:right;">
+          <button class="btn btn-secondary" onclick="openEditMonthlyCharge('${monthlyCharge.id}')">✏️ Edit</button>
+          <button class="btn btn-danger" onclick="confirmDelete('monthly-charge','${monthlyCharge.id}','${label} charge')">🗑 Delete</button>
+        </div>
+      </div>
+    `;
+  } else {
+    document.getElementById('bs-comparison').innerHTML = `
+      <div class="bs-charge-empty">
+        No monthly charge recorded for ${label}.
+        <button class="btn btn-primary" style="margin-left:1rem;" onclick="openAddMonthlyChargeModal()">+ Add Now</button>
+      </div>
+    `;
+  }
+
+  // ─── Bills table ─────────────────────────────────────────────
+  const billsSection = document.getElementById('bs-bills-section');
+  billsSection.style.display = 'block';
+  const tbody = document.getElementById('bs-bills-tbody');
+  if (!bills.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No bills active in this month.</td></tr>';
     return;
   }
-  tbody.innerHTML = data.bills.map((b, i) => `
+  tbody.innerHTML = bills.map((b, i) => `
     <tr>
       <td>${i + 1}</td>
       <td><strong>${esc(b.customerName)}</strong></td>
-      <td>${esc(b.customerMobile)}</td>
-      <td>${formatDate(b.startDate)}</td>
-      <td>${b.stopDate ? formatDate(b.stopDate) : '<span class="badge badge-active">Running</span>'}</td>
-      <td>${b.numberOfDays}</td>
+      <td>${esc(b.customerMobile || '')}</td>
       <td>${b.quantity}</td>
-      <td>₹${b.perDayCharge}</td>
-      <td><strong>₹${b.total.toLocaleString()}</strong></td>
-      <td style="color:var(--success)">₹${(b.collectedAmount||0).toLocaleString()}</td>
-      <td style="color:${b.pendingAmount>0?'var(--danger)':'var(--success)'}">₹${b.pendingAmount.toLocaleString()}</td>
+      <td>₹${(b.total ?? 0).toLocaleString()}</td>
+      <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td style="color:var(--danger);font-weight:600;">₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
-    </tr>`).join('');
+    </tr>
+  `).join('');
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  DELETE (Shared)
-// ══════════════════════════════════════════════════════════════════
+// ─── Monthly Charge Modal ─────────────────────────────────────
+
+function openAddMonthlyChargeModal() {
+  const month = document.getElementById('bs-filter-month').value;
+  const year  = document.getElementById('bs-filter-year').value;
+  document.getElementById('mc-modal-title').textContent = 'Add Monthly Charge';
+  document.getElementById('mc-id').value             = '';
+  document.getElementById('mc-month').value          = month;
+  document.getElementById('mc-year').value           = year;
+  document.getElementById('mc-projected-amount').value = '';
+  document.getElementById('mc-bill-paid-date').value   = '';
+  document.getElementById('mc-units-charged').value    = '';
+  document.getElementById('mc-comments').value         = '';
+  openModal('modal-monthly-charge');
+}
+
+function openEditMonthlyCharge(id) {
+  if (!lastBSData?.monthlyCharge) return;
+  const mc = lastBSData.monthlyCharge;
+  document.getElementById('mc-modal-title').textContent    = 'Edit Monthly Charge';
+  document.getElementById('mc-id').value                   = mc.id;
+  document.getElementById('mc-month').value                = mc.month;
+  document.getElementById('mc-year').value                 = mc.year;
+  document.getElementById('mc-projected-amount').value     = mc.projectedAmount;
+  document.getElementById('mc-bill-paid-date').value       = mc.billPaidDate || '';
+  document.getElementById('mc-units-charged').value        = mc.unitsCharged || '';
+  document.getElementById('mc-comments').value             = mc.comments || '';
+  openModal('modal-monthly-charge');
+}
+
+async function submitMonthlyCharge(e) {
+  e.preventDefault();
+  const id   = document.getElementById('mc-id').value;
+  const body = {
+    month:           parseInt(document.getElementById('mc-month').value),
+    year:            parseInt(document.getElementById('mc-year').value),
+    projectedAmount: parseFloat(document.getElementById('mc-projected-amount').value) || 0,
+    billPaidDate:    document.getElementById('mc-bill-paid-date').value || null,
+    unitsCharged:    parseFloat(document.getElementById('mc-units-charged').value) || 0,
+    comments:        document.getElementById('mc-comments').value.trim(),
+  };
+  try {
+    if (id) {
+      await apiFetch(`/api/monthly-charges/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    } else {
+      await apiFetch('/api/monthly-charges', { method: 'POST', body: JSON.stringify(body) });
+    }
+    closeModal('modal-monthly-charge');
+    showToast('Monthly charge saved!', 'success');
+    loadBalanceSheet();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DELETE (customers / bills / monthly-charges)
+// ══════════════════════════════════════════════════════════════
 
 function confirmDelete(type, id, label) {
   document.getElementById('confirm-delete-msg').textContent =
@@ -471,71 +696,56 @@ function confirmDelete(type, id, label) {
 }
 
 async function doDelete(type, id) {
-  closeModal('modal-confirm-delete');
+  const urls = { customer: `/api/customers/${id}`, bill: `/api/bills/${id}`, 'monthly-charge': `/api/monthly-charges/${id}` };
   try {
-    if (type === 'customer') {
-      await apiFetch(`/api/customers/${id}`, { method: 'DELETE' });
-      showToast('Customer deleted.', 'success');
-      await loadCustomers();
-      await loadBills();
-    } else {
-      await apiFetch(`/api/bills/${id}`, { method: 'DELETE' });
-      showToast('Bill deleted.', 'success');
-      await loadBills();
-    }
-    loadTrackerByCustomer();
+    await apiFetch(urls[type], { method: 'DELETE' });
+    closeModal('modal-confirm-delete');
+    showToast('Deleted successfully.', 'success');
+    if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); }
+    if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); }
+    if (type === 'monthly-charge') { loadBalanceSheet(); }
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  MODAL HELPERS
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  MODAL UTILITIES
+// ══════════════════════════════════════════════════════════════
 
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
 
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-function closeModalOutside(e, id) {
-  if (e.target === document.getElementById(id)) closeModal(id);
-}
-
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 //  UTILITIES
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 
 function populateCustomerDropdown(selectId) {
   const sel = document.getElementById(selectId);
   sel.innerHTML = '<option value="">-- Select Customer --</option>' +
-    allCustomers.map(c => `<option value="${c.id}">${esc(c.name)} — ${esc(c.mobileNumber)}</option>`).join('');
+    allCustomers.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.mobile)})</option>`).join('');
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function toInputDate(d) {
-  return d.toISOString().substring(0, 10);
+function toDateStr(d) {
+  return d.toISOString().split('T')[0];
 }
 
 function esc(str) {
-  if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 let toastTimer;
 function showToast(msg, type = '') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show' + (type ? ' ' + type : '');
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = `toast show${type ? ' ' + type : ''}`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
 }
