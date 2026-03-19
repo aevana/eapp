@@ -400,8 +400,8 @@ body {
   /* Header */
   .header { padding: .9rem 1rem; }
   .header-logo  { font-size: 1.8rem; }
-  .header-title { font-size: 1.2rem; }
-  .header-sub   { font-size: .78rem; }
+  .header-title { font-size: 1.25rem; }
+  .header-sub   { font-size: .875rem; }
 
   /* Tab bar — scrollable, full width */
   .tab-bar {
@@ -413,37 +413,38 @@ body {
   .tab-bar::-webkit-scrollbar { display: none; }
   .tab-btn {
     flex: 1 0 auto;
-    padding: .75rem .85rem;
-    font-size: .85rem;
-    min-width: 90px;
+    padding: .95rem 1rem;
+    font-size: .95rem;
+    min-width: 80px;
     text-align: center;
   }
 
   /* Main content */
-  .main    { padding: 0 .6rem 5rem; margin-top: .75rem; }
+  .main    { padding: 0 .75rem 5rem; margin-top: .85rem; }
 
   /* Section header — stack title & button */
   .section-header { flex-direction: column; align-items: flex-start; }
-  .section-header h2 { font-size: 1.15rem; }
+  .section-header h2 { font-size: 1.2rem; }
   .section-header .btn { width: 100%; justify-content: center; }
 
   /* Search / filter — full width inputs */
   .search-bar, .filter-row { flex-direction: column; gap: .5rem; }
   .search-bar input,
   .filter-row input,
-  .filter-row select { min-width: unset; width: 100%; }
+  .filter-row select { min-width: unset; width: 100%; font-size: .95rem; }
 
-  /* Tables — tighten padding for small screens */
-  .data-table th { padding: .6rem .6rem; font-size: .72rem; }
-  .data-table td { padding: .6rem .6rem; font-size: .8rem; }
+  /* Tables — readable on small screens */
+  .data-table th { padding: .65rem .7rem; font-size: .78rem; }
+  .data-table td { padding: .7rem .7rem;  font-size: .875rem; }
 
-  /* Action buttons — wrap and shrink */
+  /* Action buttons */
   .actions-cell { flex-wrap: wrap; gap: .3rem; }
-  .btn-icon { padding: .4rem .55rem; font-size: .75rem; }
+  .btn-icon { padding: .45rem .65rem; font-size: .8rem; }
 
   /* Forms */
   .form-row   { grid-template-columns: 1fr; margin: 0 1rem; }
   .form-group { margin-left: 1rem; margin-right: 1rem; }
+  .form-group label { font-size: .9rem; }
   .form-group input,
   .form-group select,
   .form-group textarea { font-size: 1rem; /* prevent iOS auto-zoom */ }
@@ -456,32 +457,35 @@ body {
     border-radius: 12px 12px 0 0;
   }
   .modal-wide, .modal-sm { max-width: 100%; }
-  .modal-header { padding: 1rem 1.1rem; }
+  .modal-header { padding: 1.1rem 1.25rem; }
+  .modal-header h3 { font-size: 1.1rem; }
   .modal-actions {
-    padding: 1rem 1.1rem;
+    padding: 1rem 1.25rem;
     flex-direction: column-reverse;
     gap: .5rem;
   }
-  .modal-actions .btn { width: 100%; justify-content: center; }
+  .modal-actions .btn { width: 100%; justify-content: center; font-size: .95rem; }
 
-  /* Tracker */
+  /* Tracker tabs */
   .tracker-tabs { gap: .35rem; }
-  .tracker-tab  { padding: .4rem .75rem; font-size: .8rem; flex: 1; text-align: center; }
+  .tracker-tab  { padding: .55rem .85rem; font-size: .875rem; flex: 1; text-align: center; }
 
-  .tracker-customer-header { padding: .75rem 1rem; }
-  .tracker-customer-name   { font-size: .9rem; }
-  .tracker-customer-meta   { font-size: .75rem; }
-  .tracker-stats { gap: .75rem; font-size: .75rem; }
+  .tracker-customer-header { padding: .85rem 1rem; }
+  .tracker-customer-name   { font-size: .95rem; }
+  .tracker-customer-meta   { font-size: .8rem; }
+  .tracker-stats { gap: .75rem; font-size: .8rem; }
 
   /* Month filter */
   .month-filter { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .month-filter label  { font-size: .9rem; }
   .month-filter select,
-  .month-filter input  { width: 100%; }
+  .month-filter input  { width: 100%; font-size: .95rem; }
   .month-filter .btn   { width: 100%; justify-content: center; }
 
   /* Summary cards */
   .summary-cards { grid-template-columns: 1fr 1fr; }
-  .summary-card .sc-value { font-size: 1.25rem; }
+  .summary-card .sc-label { font-size: .82rem; }
+  .summary-card .sc-value { font-size: 1.35rem; }
 
   /* Balance sheet */
   .bs-stats-grid    { grid-template-columns: 1fr; }
@@ -498,21 +502,26 @@ body {
     bottom: 1rem;
     max-width: unset;
     text-align: center;
+    font-size: .95rem;
   }
 
   /* Calc preview — stack */
-  .calc-preview { flex-direction: column; gap: .4rem; }
+  .calc-preview { flex-direction: column; gap: .4rem; font-size: .9rem; }
 
   /* Date shortcuts — wrap */
   .date-shortcuts { flex-wrap: wrap; }
-  .date-chip { flex: 1; text-align: center; }
+  .date-chip { flex: 1; text-align: center; font-size: .875rem; }
+
+  /* Hint text */
+  .hint { font-size: .875rem; }
 }
 
 /* ── Very small (max 400px) ───────────────────────────────────── */
 @media (max-width: 400px) {
   .summary-cards { grid-template-columns: 1fr; }
   .bs-charge-grid { grid-template-columns: 1fr; }
-  .header-title { font-size: 1.05rem; }
+  .header-title { font-size: 1.1rem; }
+  .tab-btn { font-size: .88rem; padding: .9rem .75rem; min-width: 72px; }
 }
 
 /* ══════════════════════════════════════════════════════════════
