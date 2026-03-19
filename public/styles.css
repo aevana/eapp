@@ -377,13 +377,13 @@ body {
 
 /* ── Toast ────────────────────────────────────────────────────── */
 .toast {
-  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+  position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 9999;
   padding: .75rem 1.25rem; border-radius: var(--radius); font-size: .9rem;
   font-weight: 600; color: #fff; background: var(--gray-800);
   box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none;
-  transition: opacity .3s, transform .3s; transform: translateY(8px); max-width: 320px;
+  transition: opacity .3s, transform .3s; max-width: 320px;
 }
-.toast.show    { opacity: 1; transform: translateY(0); }
+.toast.show    { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.success { background: var(--success); }
 .toast.error   { background: var(--danger); }
 .toast.warning { background: var(--warning); }
@@ -495,15 +495,18 @@ body {
   .bs-toolbar .btn  { width: 100%; justify-content: center; }
   .bs-charge-grid   { grid-template-columns: 1fr 1fr; }
 
-  /* Toast — full width at bottom */
+  /* Toast — full width at top */
   .toast {
     left: .75rem;
     right: .75rem;
-    bottom: 1rem;
+    top: 1rem;
+    bottom: unset;
+    transform: translateX(0) translateY(-8px);
     max-width: unset;
     text-align: center;
     font-size: .95rem;
   }
+  .toast.show { transform: translateX(0) translateY(0); }
 
   /* Calc preview — stack */
   .calc-preview { flex-direction: column; gap: .4rem; font-size: .9rem; }
