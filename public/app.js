@@ -661,6 +661,68 @@ function renderBalanceSheet(data) {
     </div>
   `;
 
+  // ─── Donut charts ────────────────────────────────────────────
+  function donutSVG(v1, v2, color1, color2, centerText) {
+    const total = (v1 + v2) || 1;
+    const r = 46, cx = 60, cy = 60;
+    const circ = 2 * Math.PI * r;
+    const arc1 = (v1 / total) * circ;
+    const arc2 = circ - arc1;
+    const offset = -(circ / 4);
+    return `<svg width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color2}" stroke-width="15"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color1}" stroke-width="15"
+        stroke-dasharray="${arc1.toFixed(2)} ${arc2.toFixed(2)}"
+        stroke-dashoffset="${offset.toFixed(2)}" stroke-linecap="butt"/>
+      <text x="${cx}" y="${cy}" text-anchor="middle" dy=".35em"
+        font-size="12" font-weight="800" fill="#1e293b" font-family="inherit">${centerText}</text>
+    </svg>`;
+  }
+
+  function donutCard(title, v1, v2, color1, color2, label1, label2, fmt1, fmt2, centerText) {
+    return `<div class="bs-donut-card">
+      <div class="bs-donut-title">${title}</div>
+      <div class="bs-donut-svg-wrap">${donutSVG(v1, v2, color1, color2, centerText)}</div>
+      <div class="bs-donut-legend">
+        <div class="bs-donut-legend-item">
+          <span class="bs-donut-legend-dot" style="background:${color1}"></span>
+          <span>${label1}</span><strong>${fmt1}</strong>
+        </div>
+        <div class="bs-donut-legend-item">
+          <span class="bs-donut-legend-dot" style="background:${color2}"></span>
+          <span>${label2}</span><strong>${fmt2}</strong>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const unitsPct = stats.unitsProjected
+    ? Math.round((stats.unitsCharged / stats.unitsProjected) * 100) + '%' : '—';
+  const chargePct = summary.totalCharged
+    ? Math.round((stats.projectedAmount / summary.totalCharged) * 100) + '%' : '—';
+
+  document.getElementById('bs-donut-charts').innerHTML =
+    donutCard('⚡ Units Projected vs Charged',
+      stats.unitsProjected, stats.unitsCharged,
+      '#3b82f6', '#f97316',
+      'Projected', 'Board Charged',
+      stats.unitsProjected, stats.unitsCharged,
+      unitsPct) +
+    donutCard('💰 Expected Charge vs Board Bill',
+      summary.totalCharged, stats.projectedAmount,
+      '#3b82f6', '#f97316',
+      'Billed to Customers', 'Board Bill',
+      '₹' + summary.totalCharged.toLocaleString(),
+      '₹' + stats.projectedAmount.toLocaleString(),
+      chargePct) +
+    donutCard('🧾 Charged vs Collected',
+      summary.totalCollected, summary.totalPending,
+      '#22c55e', '#ef4444',
+      'Collected', 'Pending',
+      '₹' + summary.totalCollected.toLocaleString(),
+      '₹' + summary.totalPending.toLocaleString(),
+      stats.collectionRate + '%');
+
   // ─── Monthly charge detail ───────────────────────────────────
   if (hasCharge) {
     document.getElementById('bs-comparison').innerHTML = `
