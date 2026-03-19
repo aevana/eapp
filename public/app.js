@@ -439,6 +439,135 @@ function toggleCustomerCard(id) {
   document.getElementById(`tcard-${id}`)?.classList.toggle('expanded');
 }
 
+// ── Bill Image Generation ──────────────────────────────────────
+// Renders a bill card onto a canvas element and returns it.
+function generateBillCanvas(d) {
+  const W = 440, H = 490, PAD = 28, SCALE = 2;
+  const cvs = document.createElement('canvas');
+  cvs.width = W * SCALE; cvs.height = H * SCALE;
+  cvs.style.width = W + 'px'; cvs.style.height = H + 'px';
+  const c = cvs.getContext('2d');
+  c.scale(SCALE, SCALE);
+
+  function rr(x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+  const divider = yy => {
+    c.strokeStyle = '#e2e8f0'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(PAD, yy); c.lineTo(W - PAD, yy); c.stroke();
+  };
+
+  // Card background
+  rr(0, 0, W, H, 20); c.fillStyle = '#ffffff'; c.fill();
+
+  // Green header (top corners rounded, bottom square via filled rect)
+  c.fillStyle = '#16a34a';
+  rr(0, 0, W, 96, 20); c.fill();
+  c.fillRect(0, 76, W, 20);
+
+  // Header text
+  c.fillStyle = '#ffffff';
+  c.font = 'bold 24px system-ui, -apple-system, sans-serif';
+  c.fillText('\u26A1 Electricity Bill', PAD, 50);
+  c.font = '13px system-ui, sans-serif';
+  c.fillStyle = 'rgba(255,255,255,0.75)';
+  c.fillText('iApp Solutions', PAD, 78);
+
+  let y = 114;
+
+  // Greeting
+  c.fillStyle = '#1e293b';
+  c.font = 'bold 17px system-ui, sans-serif';
+  c.fillText('Dear ' + d.name + ',', PAD, y); y += 24;
+  c.font = '13px system-ui, sans-serif';
+  c.fillStyle = '#64748b';
+  c.fillText('Your electricity bill has been updated.', PAD, y); y += 18;
+
+  divider(y + 4); y += 18;
+
+  // Detail rows
+  const details = [['Period', d.period], ['Days', d.days], ['Sets', d.sets], ['Rate', d.rate]];
+  c.font = '13px system-ui, sans-serif';
+  for (const [label, val] of details) {
+    c.fillStyle = '#64748b'; c.textAlign = 'left';
+    c.fillText(label, PAD, y);
+    c.fillStyle = '#334155'; c.textAlign = 'right';
+    c.fillText(val, W - PAD, y);
+    c.textAlign = 'left'; y += 26;
+  }
+
+  divider(y + 2); y += 16;
+
+  // Amount rows
+  const amts = [
+    ['Total',   d.total,   '#334155'],
+    ['Paid',    d.paid,    '#16a34a'],
+    ['Pending', d.pending, d.pendingAmt > 0 ? '#dc2626' : '#16a34a'],
+  ];
+  for (const [label, val, clr] of amts) {
+    c.font = (label === 'Pending' ? 'bold ' : '') + '15px system-ui, sans-serif';
+    c.fillStyle = '#64748b'; c.textAlign = 'left';
+    c.fillText(label, PAD, y);
+    c.fillStyle = clr; c.textAlign = 'right';
+    c.fillText(val, W - PAD, y);
+    c.textAlign = 'left'; y += 30;
+  }
+
+  divider(y + 2); y += 18;
+
+  // Footer
+  c.font = '12px system-ui, sans-serif';
+  c.fillStyle = '#94a3b8';
+  c.textAlign = 'center';
+  c.fillText('For any queries, please contact us. Thank you!', W / 2, y);
+  c.textAlign = 'left';
+
+  return cvs;
+}
+
+// Shows the bill as a canvas image in a modal with Download & Share options.
+function showBillImageModal(mobile, data) {
+  const cvs = generateBillCanvas(data);
+  const container = document.getElementById('bill-image-container');
+  container.innerHTML = '';
+  cvs.style.maxWidth = '100%';
+  cvs.style.borderRadius = '12px';
+  cvs.style.boxShadow = '0 2px 16px rgba(0,0,0,0.10)';
+  container.appendChild(cvs);
+
+  const clean = (mobile || '').replace(/\D/g, '');
+
+  document.getElementById('bill-img-download').onclick = () => {
+    const a = document.createElement('a');
+    a.download = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
+    a.href = cvs.toDataURL('image/png');
+    a.click();
+  };
+
+  document.getElementById('bill-img-share').onclick = () => {
+    cvs.toBlob(async blob => {
+      const file = new File([blob], 'electricity-bill.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; } catch (e) {}
+      }
+      // Fallback: download image then open WhatsApp
+      const a = document.createElement('a');
+      a.download = 'electricity-bill.png';
+      a.href = cvs.toDataURL('image/png');
+      a.click();
+      if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
+    });
+  };
+
+  openModal('modal-bill-image');
+}
+
 // ── WhatsApp Notification Prompt ──────────────────────────────
 // Shows a modal with an editable message preview before opening WhatsApp.
 function promptWhatsApp(mobile, message) {
@@ -481,32 +610,34 @@ function sendWhatsAppReminder(customerId) {
   window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// Send reminder for a specific bill
+// Send reminder for a specific bill — renders as a shareable image
 function sendWhatsAppBillReminder(customerId, billId) {
   const customer = trackerData.find(c => c.id === customerId);
   if (!customer) return;
   const bill = customer.bills.find(b => b.id === billId);
   if (!bill) return;
 
-  const mobile  = customer.mobile.replace(/\D/g, '');
+  const start = bill.startDate ? new Date(bill.startDate) : null;
+  const stop  = bill.stopDate  ? new Date(bill.stopDate)  : new Date();
+  const days  = start ? Math.max(1, Math.ceil((stop - start) / 86400000)) : 1;
+  const sets  = bill.quantity || 1;
+  const total = bill.total || 0;
+  const paid  = bill.collectedAmount || 0;
   const pending = bill.pendingAmount || 0;
-  if (!pending) { showToast('No pending amount for this bill.', 'warning'); return; }
+  const rate  = (days && sets) ? Math.round(total / (days * sets)) : 0;
+  const fmt   = d => d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '\u2014';
 
-  const msg = [
-    `Dear ${customer.name},`,
-    ``,
-    `Reminder for your electricity bill:`,
-    `  Period : ${fmtDate(bill.startDate)} → ${bill.stopDate ? fmtDate(bill.stopDate) : 'Running'}`,
-    `  Sets   : ${bill.quantity}`,
-    `  Total  : ₹${(bill.total || 0).toLocaleString()}`,
-    `  Paid   : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
-    `  Pending: ₹${pending.toLocaleString()}`,
-    ``,
-    `Please make the payment at your earliest convenience.`,
-    `Thank you!`,
-  ].join('\n');
-
-  window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
+  showBillImageModal(customer.mobile, {
+    name:       customer.name,
+    period:     fmt(start) + ' \u2192 ' + (bill.stopDate ? fmt(stop) : 'Running'),
+    days:       String(days),
+    sets:       String(sets),
+    rate:       '\u20B9' + rate + '/day',
+    total:      '\u20B9' + total.toLocaleString('en-IN'),
+    paid:       '\u20B9' + paid.toLocaleString('en-IN'),
+    pending:    '\u20B9' + pending.toLocaleString('en-IN'),
+    pendingAmt: pending,
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
