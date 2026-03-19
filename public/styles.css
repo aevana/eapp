@@ -389,13 +389,128 @@ body {
 .toast.warning { background: var(--warning); }
 
 /* ── Responsive ───────────────────────────────────────────────── */
+
+/* ── Tablet (max 900px) ───────────────────────────────────────── */
+@media (max-width: 900px) {
+  .bs-stats-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Mobile (max 700px) ───────────────────────────────────────── */
 @media (max-width: 700px) {
-  .main     { padding: 0 .75rem 4rem; }
-  .tab-bar  { padding: 0 .75rem; }
-  .form-row { grid-template-columns: 1fr; margin: 0 1rem; }
+  /* Header */
+  .header { padding: .9rem 1rem; }
+  .header-logo  { font-size: 1.8rem; }
+  .header-title { font-size: 1.2rem; }
+  .header-sub   { font-size: .78rem; }
+
+  /* Tab bar — scrollable, full width */
+  .tab-bar {
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    flex: 1 0 auto;
+    padding: .75rem .85rem;
+    font-size: .85rem;
+    min-width: 90px;
+    text-align: center;
+  }
+
+  /* Main content */
+  .main    { padding: 0 .6rem 5rem; margin-top: .75rem; }
+
+  /* Section header — stack title & button */
+  .section-header { flex-direction: column; align-items: flex-start; }
+  .section-header h2 { font-size: 1.15rem; }
+  .section-header .btn { width: 100%; justify-content: center; }
+
+  /* Search / filter — full width inputs */
+  .search-bar, .filter-row { flex-direction: column; gap: .5rem; }
+  .search-bar input,
+  .filter-row input,
+  .filter-row select { min-width: unset; width: 100%; }
+
+  /* Tables — tighten padding for small screens */
+  .data-table th { padding: .6rem .6rem; font-size: .72rem; }
+  .data-table td { padding: .6rem .6rem; font-size: .8rem; }
+
+  /* Action buttons — wrap and shrink */
+  .actions-cell { flex-wrap: wrap; gap: .3rem; }
+  .btn-icon { padding: .4rem .55rem; font-size: .75rem; }
+
+  /* Forms */
+  .form-row   { grid-template-columns: 1fr; margin: 0 1rem; }
   .form-group { margin-left: 1rem; margin-right: 1rem; }
-  .summary-cards  { grid-template-columns: 1fr 1fr; }
-  .bs-stats-grid  { grid-template-columns: 1fr; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea { font-size: 1rem; /* prevent iOS auto-zoom */ }
+
+  /* Modal — edge-to-edge with breathing room */
+  .modal-overlay { padding: .5rem; align-items: flex-end; }
+  .modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 12px 12px 0 0;
+  }
+  .modal-wide, .modal-sm { max-width: 100%; }
+  .modal-header { padding: 1rem 1.1rem; }
+  .modal-actions {
+    padding: 1rem 1.1rem;
+    flex-direction: column-reverse;
+    gap: .5rem;
+  }
+  .modal-actions .btn { width: 100%; justify-content: center; }
+
+  /* Tracker */
+  .tracker-tabs { gap: .35rem; }
+  .tracker-tab  { padding: .4rem .75rem; font-size: .8rem; flex: 1; text-align: center; }
+
+  .tracker-customer-header { padding: .75rem 1rem; }
+  .tracker-customer-name   { font-size: .9rem; }
+  .tracker-customer-meta   { font-size: .75rem; }
+  .tracker-stats { gap: .75rem; font-size: .75rem; }
+
+  /* Month filter */
+  .month-filter { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .month-filter select,
+  .month-filter input  { width: 100%; }
+  .month-filter .btn   { width: 100%; justify-content: center; }
+
+  /* Summary cards */
+  .summary-cards { grid-template-columns: 1fr 1fr; }
+  .summary-card .sc-value { font-size: 1.25rem; }
+
+  /* Balance sheet */
+  .bs-stats-grid    { grid-template-columns: 1fr; }
   .bs-revenue-value { font-size: 2rem; }
-  .bs-toolbar { flex-direction: column; }
+  .bs-revenue-card  { padding: 1.25rem 1rem; }
+  .bs-toolbar       { flex-direction: column; }
+  .bs-toolbar .btn  { width: 100%; justify-content: center; }
+  .bs-charge-grid   { grid-template-columns: 1fr 1fr; }
+
+  /* Toast — full width at bottom */
+  .toast {
+    left: .75rem;
+    right: .75rem;
+    bottom: 1rem;
+    max-width: unset;
+    text-align: center;
+  }
+
+  /* Calc preview — stack */
+  .calc-preview { flex-direction: column; gap: .4rem; }
+
+  /* Date shortcuts — wrap */
+  .date-shortcuts { flex-wrap: wrap; }
+  .date-chip { flex: 1; text-align: center; }
+}
+
+/* ── Very small (max 400px) ───────────────────────────────────── */
+@media (max-width: 400px) {
+  .summary-cards { grid-template-columns: 1fr; }
+  .bs-charge-grid { grid-template-columns: 1fr; }
+  .header-title { font-size: 1.05rem; }
 }
