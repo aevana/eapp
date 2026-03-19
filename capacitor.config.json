@@ -1,0 +1,11 @@
+{
+  "appId": "com.aevana.electricitybillstracker",
+  "appName": "Electricity Bills",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
