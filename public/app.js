@@ -104,7 +104,7 @@ async function submitAddCustomer(e) {
     promptWhatsApp(customer.mobile, [
       `Dear ${customer.name},`,
       ``,
-      `Welcome to iPGApp Electricity Service! ⚡`,
+      `Welcome to iApp Solutions Electricity Service! ⚡`,
       `Your account has been successfully registered.`,
       ``,
       `Name   : ${customer.name}`,
