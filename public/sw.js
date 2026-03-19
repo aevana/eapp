@@ -1,4 +1,4 @@
-const CACHE = 'ebt-v1';
+const CACHE = 'ebt-v2';
 const ASSETS = [
   '/',
   '/index.html',
