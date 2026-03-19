@@ -9,7 +9,8 @@
     "android:add": "cap add android",
     "android:sync": "cap sync android",
     "android:open": "cap open android",
-    "android:build": "cap add android && cap sync android && cd android && ./gradlew assembleDebug"
+    "android:build": "cap add android && cap sync android && cd android && ./gradlew assembleDebug",
+    "migrate": "node scripts/generate-migration.js"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",
