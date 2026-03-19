@@ -317,17 +317,23 @@ async function submitUpdateBill(e) {
 function stopBill(id) {
   const bill = allBills.find(b => b.id === id);
   const name = bill?.customerName || 'Customer';
-  const msg = [
-    `Dear ${name},`,
-    ``,
-    `Your electricity meter has been stopped. ⏹`,
-    ``,
-    `Please make the pending payment at your earliest convenience.`,
-    `Thank you!`,
-  ].join('\n');
-  document.getElementById('stop-confirm-msg').value = msg;
-  document.getElementById('stop-confirm-send-btn').onclick = () => doStopBill(id);
-  openModal('modal-stop-confirm');
+  document.getElementById('stop-sure-msg').textContent =
+    `Are you sure you want to stop the bill for "${name}"?`;
+  document.getElementById('stop-sure-confirm-btn').onclick = () => {
+    closeModal('modal-stop-sure');
+    const msg = [
+      `Dear ${name},`,
+      ``,
+      `Your electricity meter has been stopped. ⏹`,
+      ``,
+      `Please make the pending payment at your earliest convenience.`,
+      `Thank you!`,
+    ].join('\n');
+    document.getElementById('stop-confirm-msg').value = msg;
+    document.getElementById('stop-confirm-send-btn').onclick = () => doStopBill(id);
+    openModal('modal-stop-confirm');
+  };
+  openModal('modal-stop-sure');
 }
 
 async function doStopBill(id) {
