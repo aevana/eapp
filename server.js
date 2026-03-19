@@ -21,6 +21,16 @@ const CHARGES_FILE    = path.join(DATA_DIR, 'monthly-charges.json');
 const readJSON  = f => JSON.parse(fs.readFileSync(f, 'utf8'));
 const writeJSON = (f, d) => fs.writeFileSync(f, JSON.stringify(d, null, 2));
 
+// Normalize legacy `mobileNumber` field to `mobile`
+function normalizeCustomer(c) {
+  if (!c.mobile && c.mobileNumber) {
+    const { mobileNumber, ...rest } = c;
+    return { ...rest, mobile: mobileNumber };
+  }
+  return c;
+}
+const readCustomers = () => readJSON(CUSTOMERS_FILE).map(normalizeCustomer);
+
 // ── Middleware ─────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -57,13 +67,13 @@ function billOverlapsMonth(bill, month, year) {
 // ══════════════════════════════════════════════════════════════
 
 app.get('/api/customers', (req, res) => {
-  res.json(readJSON(CUSTOMERS_FILE));
+  res.json(readCustomers());
 });
 
 app.post('/api/customers', (req, res) => {
   const { name, mobile, address } = req.body;
   if (!name || !mobile) return res.status(400).json({ error: 'Name and mobile are required' });
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   const customer = { id: uuidv4(), name, mobile, address: address || '', createdAt: new Date().toISOString() };
   customers.push(customer);
   writeJSON(CUSTOMERS_FILE, customers);
@@ -71,7 +81,7 @@ app.post('/api/customers', (req, res) => {
 });
 
 app.put('/api/customers/:id', (req, res) => {
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   const idx = customers.findIndex(c => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Customer not found' });
   customers[idx] = { ...customers[idx], ...req.body, id: req.params.id };
@@ -80,7 +90,7 @@ app.put('/api/customers/:id', (req, res) => {
 });
 
 app.delete('/api/customers/:id', (req, res) => {
-  let customers = readJSON(CUSTOMERS_FILE);
+  let customers = readCustomers();
   if (!customers.find(c => c.id === req.params.id)) return res.status(404).json({ error: 'Customer not found' });
   customers = customers.filter(c => c.id !== req.params.id);
   writeJSON(CUSTOMERS_FILE, customers);
@@ -96,7 +106,7 @@ app.delete('/api/customers/:id', (req, res) => {
 // ══════════════════════════════════════════════════════════════
 
 app.get('/api/bills', (req, res) => {
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   let bills = readJSON(BILLS_FILE).map(b => enrichBill(b, customers));
   if (req.query.status) bills = bills.filter(b => b.status === req.query.status);
   res.json(bills);
@@ -119,7 +129,7 @@ app.post('/api/bills', (req, res) => {
   };
   bills.push(bill);
   writeJSON(BILLS_FILE, bills);
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   res.status(201).json(enrichBill(bill, customers));
 });
 
@@ -131,7 +141,7 @@ app.put('/api/bills/:id', (req, res) => {
   if (updated.stopDate) updated.status = 'stopped';
   bills[idx] = updated;
   writeJSON(BILLS_FILE, bills);
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   res.json(enrichBill(bills[idx], customers));
 });
 
@@ -148,7 +158,7 @@ app.delete('/api/bills/:id', (req, res) => {
 // ══════════════════════════════════════════════════════════════
 
 app.get('/api/tracker/customers', (req, res) => {
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   const bills     = readJSON(BILLS_FILE);
   const result = customers.map(c => ({
     ...c,
@@ -164,7 +174,7 @@ app.get('/api/tracker/by-month', (req, res) => {
   const year  = parseInt(req.query.year);
   if (!month || !year) return res.status(400).json({ error: 'month and year required' });
 
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   const bills     = readJSON(BILLS_FILE)
     .filter(b => billOverlapsMonth(b, month, year))
     .map(b => enrichBill(b, customers));
@@ -239,7 +249,7 @@ app.get('/api/balance-sheet', (req, res) => {
   const year  = parseInt(req.query.year);
   if (!month || !year) return res.status(400).json({ error: 'month and year required' });
 
-  const customers = readJSON(CUSTOMERS_FILE);
+  const customers = readCustomers();
   const bills     = readJSON(BILLS_FILE)
     .filter(b => billOverlapsMonth(b, month, year))
     .map(b => enrichBill(b, customers));
