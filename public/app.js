@@ -178,7 +178,6 @@ function renderBills(bills) {
       <td class="actions-cell">
         <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
         ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
-        <button class="btn btn-icon btn-whatsapp" onclick="sendWhatsAppBillReminder('${b.customerId}', '${b.id}')">📱</button>
         <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill #${i + 1}')">🗑 Delete</button>
       </td>
     </tr>
@@ -322,17 +321,31 @@ function stopBill(id) {
     `Are you sure you want to stop the bill for "${name}"?`;
   document.getElementById('stop-sure-confirm-btn').onclick = () => {
     closeModal('modal-stop-sure');
-    doStopBill(id);
+    const msg = [
+      `Dear ${name},`,
+      ``,
+      `Your electricity meter has been stopped. ⏹`,
+      ``,
+      `Please make the pending payment at your earliest convenience.`,
+      `Thank you!`,
+    ].join('\n');
+    document.getElementById('stop-confirm-msg').value = msg;
+    document.getElementById('stop-confirm-send-btn').onclick = () => doStopBill(id);
+    openModal('modal-stop-confirm');
   };
   openModal('modal-stop-sure');
 }
 
 async function doStopBill(id) {
+  closeModal('modal-stop-confirm');
   try {
-    await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify({ stopDate: toDateStr(new Date()) }) });
+    const bill = await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify({ stopDate: toDateStr(new Date()) }) });
     showToast('Bill stopped!', 'warning');
     loadBills();
     loadTrackerByCustomer();
+    const text = document.getElementById('stop-confirm-msg').value;
+    const clean = (bill.customerMobile || '').replace(/\D/g, '');
+    if (clean) window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(text)}`, '_blank');
   } catch (e) { showToast(e.message, 'error'); }
 }
 
