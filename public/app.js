@@ -96,11 +96,24 @@ async function submitAddCustomer(e) {
     address: document.getElementById('c-address').value.trim(),
   };
   try {
-    await apiFetch('/api/customers', { method: 'POST', body: JSON.stringify(body) });
+    const customer = await apiFetch('/api/customers', { method: 'POST', body: JSON.stringify(body) });
     closeModal('modal-add-customer');
     document.getElementById('form-add-customer').reset();
     showToast('Customer added!', 'success');
     loadCustomers();
+    promptWhatsApp(customer.mobile, [
+      `Dear ${customer.name},`,
+      ``,
+      `Welcome to iPGApp Electricity Service! ⚡`,
+      `Your account has been successfully registered.`,
+      ``,
+      `Name   : ${customer.name}`,
+      `Mobile : ${customer.mobile}`,
+      `Address: ${customer.address || 'N/A'}`,
+      ``,
+      `We will notify you when your electricity bill is generated.`,
+      `Thank you for choosing our service!`,
+    ].join('\n'));
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -210,12 +223,25 @@ async function submitAddBill(e) {
     perDayCharge: parseInt(document.getElementById('b-perday').value),
   };
   try {
-    await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify(body) });
+    const bill = await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify(body) });
     closeModal('modal-add-bill');
     document.getElementById('form-add-bill').reset();
     showToast('Bill added!', 'success');
     loadBills();
     loadTrackerByCustomer();
+    promptWhatsApp(bill.customerMobile, [
+      `Dear ${bill.customerName},`,
+      ``,
+      `Your electricity meter has been started. ⚡`,
+      ``,
+      `Start Date : ${fmtDate(bill.startDate)}`,
+      `Sets (Qty) : ${bill.quantity}`,
+      `Rate       : ₹${bill.perDayCharge}/day per set`,
+      ``,
+      `Billing is now active. You will receive a final bill once the meter is stopped.`,
+      `For any queries, please contact us.`,
+      `Thank you!`,
+    ].join('\n'));
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -264,20 +290,51 @@ async function submitUpdateBill(e) {
     collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
   };
   try {
-    await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    const bill = await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify(body) });
     closeModal('modal-update-bill');
     showToast('Bill updated!', 'success');
     loadBills();
     loadTrackerByCustomer();
+    promptWhatsApp(bill.customerMobile, [
+      `Dear ${bill.customerName},`,
+      ``,
+      `Your electricity bill has been updated. 📋`,
+      ``,
+      `Period  : ${fmtDate(bill.startDate)} → ${bill.stopDate ? fmtDate(bill.stopDate) : 'Running'}`,
+      `Days    : ${bill.numberOfDays}`,
+      `Sets    : ${bill.quantity}`,
+      `Rate    : ₹${bill.perDayCharge}/day`,
+      `Total   : ₹${(bill.total || 0).toLocaleString()}`,
+      `Paid    : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
+      `Pending : ₹${(bill.pendingAmount || 0).toLocaleString()}`,
+      ``,
+      `For any queries, please contact us.`,
+      `Thank you!`,
+    ].join('\n'));
   } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function stopBill(id) {
   try {
-    await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify({ stopDate: toDateStr(new Date()) }) });
+    const bill = await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify({ stopDate: toDateStr(new Date()) }) });
     showToast('Bill stopped!', 'warning');
     loadBills();
     loadTrackerByCustomer();
+    promptWhatsApp(bill.customerMobile, [
+      `Dear ${bill.customerName},`,
+      ``,
+      `Your electricity meter has been stopped. ⏹`,
+      ``,
+      `Period  : ${fmtDate(bill.startDate)} → ${fmtDate(bill.stopDate)}`,
+      `Days    : ${bill.numberOfDays}`,
+      `Sets    : ${bill.quantity}`,
+      `Total   : ₹${(bill.total || 0).toLocaleString()}`,
+      `Paid    : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
+      `Pending : ₹${(bill.pendingAmount || 0).toLocaleString()}`,
+      ``,
+      `Please make the pending payment at your earliest convenience.`,
+      `Thank you!`,
+    ].join('\n'));
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -382,6 +439,20 @@ function renderTrackerByCustomer(data) {
 
 function toggleCustomerCard(id) {
   document.getElementById(`tcard-${id}`)?.classList.toggle('expanded');
+}
+
+// ── WhatsApp Notification Prompt ──────────────────────────────
+// Shows a modal with an editable message preview before opening WhatsApp.
+function promptWhatsApp(mobile, message) {
+  const clean = (mobile || '').replace(/\D/g, '');
+  if (!clean) return; // no mobile number — skip silently
+  document.getElementById('wa-prompt-msg').value = message;
+  document.getElementById('wa-prompt-send-btn').onclick = () => {
+    const text = document.getElementById('wa-prompt-msg').value;
+    window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(text)}`, '_blank');
+    closeModal('modal-wa-prompt');
+  };
+  openModal('modal-wa-prompt');
 }
 
 // Send reminder for ALL active bills of a customer
