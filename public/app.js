@@ -537,7 +537,6 @@ function renderBalanceSheet(data) {
   `;
 
   // ─── Stats grid ──────────────────────────────────────────────
-  const unitsBar   = renderCompareBar(stats.unitsCharged, stats.unitsProjected, '₹', false);
   document.getElementById('bs-stats-grid').innerHTML = `
     <div class="bs-stat-card">
       <div class="bs-stat-title">📦 Total Active Sets (Qty)</div>
