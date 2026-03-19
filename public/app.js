@@ -314,27 +314,32 @@ async function submitUpdateBill(e) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-async function stopBill(id) {
+function stopBill(id) {
+  const bill = allBills.find(b => b.id === id);
+  const name = bill?.customerName || 'Customer';
+  const msg = [
+    `Dear ${name},`,
+    ``,
+    `Your electricity meter has been stopped. ⏹`,
+    ``,
+    `Please make the pending payment at your earliest convenience.`,
+    `Thank you!`,
+  ].join('\n');
+  document.getElementById('stop-confirm-msg').value = msg;
+  document.getElementById('stop-confirm-send-btn').onclick = () => doStopBill(id);
+  openModal('modal-stop-confirm');
+}
+
+async function doStopBill(id) {
+  closeModal('modal-stop-confirm');
   try {
     const bill = await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify({ stopDate: toDateStr(new Date()) }) });
     showToast('Bill stopped!', 'warning');
     loadBills();
     loadTrackerByCustomer();
-    promptWhatsApp(bill.customerMobile, [
-      `Dear ${bill.customerName},`,
-      ``,
-      `Your electricity meter has been stopped. ⏹`,
-      ``,
-      `Period  : ${fmtDate(bill.startDate)} → ${fmtDate(bill.stopDate)}`,
-      `Days    : ${bill.numberOfDays}`,
-      `Sets    : ${bill.quantity}`,
-      `Total   : ₹${(bill.total || 0).toLocaleString()}`,
-      `Paid    : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
-      `Pending : ₹${(bill.pendingAmount || 0).toLocaleString()}`,
-      ``,
-      `Please make the pending payment at your earliest convenience.`,
-      `Thank you!`,
-    ].join('\n'));
+    const text = document.getElementById('stop-confirm-msg').value;
+    const clean = (bill.customerMobile || '').replace(/\D/g, '');
+    if (clean) window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(text)}`, '_blank');
   } catch (e) { showToast(e.message, 'error'); }
 }
 
