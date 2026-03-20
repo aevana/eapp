@@ -119,6 +119,8 @@
           <label>Year</label>
           <input type="number" id="filter-year" value="2025" min="2000" max="2100" />
           <button class="btn btn-primary" onclick="loadTrackerByBill()">View</button>
+          <button class="btn btn-secondary" id="btn-bm-csv" style="display:none" onclick="exportByMonthCSV()">📥 Download CSV</button>
+          <button class="btn btn-whatsapp"  id="btn-bm-wa"  style="display:none" onclick="shareByMonthReport()">📱 Share Report</button>
         </div>
         <div id="tracker-summary-cards" class="summary-cards"></div>
         <div class="table-wrap" style="margin-top:1rem">

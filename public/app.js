@@ -747,6 +747,91 @@ function renderByMonthTable() {
   `).join('');
 }
 
+function getByMonthSorted() {
+  const { col, dir } = byMonthSort;
+  return [...byMonthBills].sort((a, b) => {
+    if (!col) return 0;
+    let av = a[col], bv = b[col];
+    if (col === 'startDate' || col === 'stopDate') {
+      av = av ? new Date(av).getTime() : 0;
+      bv = bv ? new Date(bv).getTime() : 0;
+    } else if (typeof av === 'string') {
+      av = av.toLowerCase(); bv = (bv || '').toLowerCase();
+    } else { av = av ?? 0; bv = bv ?? 0; }
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+}
+
+function exportByMonthCSV() {
+  if (!byMonthBills.length) return;
+  const month = document.getElementById('filter-month').value;
+  const year  = document.getElementById('filter-year').value;
+  const mName = new Date(year, month - 1).toLocaleString('en-IN', { month: 'long' });
+
+  const headers = ['#','Customer','Mobile','Start Date','Stop Date','Days','Qty','Per Day','Total','Collected','Pending','Status'];
+  const rows = getByMonthSorted().map((b, i) => [
+    i + 1,
+    b.customerName,
+    b.customerMobile || '',
+    b.startDate ? fmtDate(b.startDate) : '',
+    b.stopDate  ? fmtDate(b.stopDate)  : '',
+    b.numberOfDays ?? '',
+    b.quantity,
+    b.perDayCharge,
+    b.total ?? 0,
+    b.collectedAmount ?? 0,
+    b.pendingAmount ?? 0,
+    b.status,
+  ]);
+
+  const csv = [headers, ...rows]
+    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `bills-${mName}-${year}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function shareByMonthReport() {
+  if (!byMonthBills.length) return;
+  const month = document.getElementById('filter-month').value;
+  const year  = document.getElementById('filter-year').value;
+  const mName = new Date(year, month - 1).toLocaleString('en-IN', { month: 'long' });
+
+  const sorted = getByMonthSorted();
+  const total     = sorted.reduce((s, b) => s + (b.total ?? 0), 0);
+  const collected = sorted.reduce((s, b) => s + (b.collectedAmount ?? 0), 0);
+  const pending   = sorted.reduce((s, b) => s + (b.pendingAmount ?? 0), 0);
+
+  const lines = [
+    `📊 Bill Report — ${mName} ${year}`,
+    ``,
+    `Bills   : ${sorted.length}`,
+    `Total   : ₹${total.toLocaleString('en-IN')}`,
+    `Collected: ₹${collected.toLocaleString('en-IN')}`,
+    `Pending : ₹${pending.toLocaleString('en-IN')}`,
+    ``,
+    ...sorted.map((b, i) => {
+      const p = b.pendingAmount ?? 0;
+      return `${i + 1}. ${b.customerName} | ₹${(b.total ?? 0).toLocaleString('en-IN')}` +
+             (p > 0 ? ` | Due ₹${p.toLocaleString('en-IN')}` : ' | Paid') +
+             ` [${b.status}]`;
+    }),
+  ];
+  const text = lines.join('\n');
+
+  if (navigator.share) {
+    navigator.share({ title: `Bill Report ${mName} ${year}`, text }).catch(() => {});
+  } else {
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  }
+}
+
 async function loadTrackerByBill() {
   const month = document.getElementById('filter-month').value;
   const year  = document.getElementById('filter-year').value;
@@ -775,13 +860,16 @@ async function loadTrackerByBill() {
     `;
 
     const tbody = document.getElementById('tracker-bills-tbody');
+    const showExport = v => ['btn-bm-csv','btn-bm-wa'].forEach(id => document.getElementById(id).style.display = v ? '' : 'none');
     if (!bills.length) {
       byMonthBills = [];
+      showExport(false);
       tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found for this period.</td></tr>';
       return;
     }
     byMonthBills = bills;
     byMonthSort  = { col: null, dir: 1 };
+    showExport(true);
     renderByMonthTable();
   } catch (e) { showToast(e.message, 'error'); }
 }
