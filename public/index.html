@@ -186,7 +186,13 @@
 
         <!-- Bills for that month -->
         <div id="bs-bills-section" style="margin-top:1.5rem;display:none;">
-          <h3 class="bs-section-title">Bills Active in this Month</h3>
+          <div class="bs-bills-header">
+            <h3 class="bs-section-title" style="margin:0;">Bills Active in this Month</h3>
+            <div class="bs-bills-actions">
+              <button class="btn btn-secondary" onclick="exportBSBillsCSV()">📥 Download CSV</button>
+              <button class="btn btn-whatsapp" onclick="shareBSBillsWhatsApp()">📱 Share via WhatsApp</button>
+            </div>
+          </div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>

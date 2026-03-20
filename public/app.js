@@ -889,6 +889,39 @@ function renderBalanceSheet(data) {
   `).join('');
 }
 
+// ─── Balance Sheet Bills Export ───────────────────────────────
+
+function exportBSBillsCSV() {
+  const bills = lastBSData?.bills;
+  if (!bills?.length) { showToast('No bills to export.', 'warning'); return; }
+  const { month, year } = lastBSData;
+  const label = `${MONTH_NAMES[month]}-${year}`;
+  const headers = ['#', 'Customer', 'Mobile', 'Qty', 'Total (₹)', 'Collected (₹)', 'Pending (₹)', 'Status'];
+  const rows = bills.map((b, i) => [
+    i + 1, b.customerName, b.customerMobile || '',
+    b.quantity, b.total ?? 0, b.collectedAmount ?? 0, b.pendingAmount ?? 0, b.status,
+  ]);
+  downloadCSV(`bills-active-${label}.csv`, buildCSV(headers, rows));
+}
+
+function shareBSBillsWhatsApp() {
+  const bills = lastBSData?.bills;
+  if (!bills?.length) { showToast('No bills to share.', 'warning'); return; }
+  const { month, year, summary } = lastBSData;
+  const label = `${MONTH_NAMES[month]} ${year}`;
+  const lines = bills.map((b, i) =>
+    `${i + 1}. ${b.customerName} | Qty:${b.quantity} | Total:₹${(b.total ?? 0).toLocaleString()} | Collected:₹${(b.collectedAmount ?? 0).toLocaleString()} | Pending:₹${(b.pendingAmount ?? 0).toLocaleString()} | ${b.status}`
+  );
+  const msg = [
+    `📒 Balance Sheet — ${label}`,
+    ``,
+    ...lines,
+    ``,
+    `💰 Total: ₹${summary.totalCharged.toLocaleString()} | Collected: ₹${summary.totalCollected.toLocaleString()} | Pending: ₹${summary.totalPending.toLocaleString()}`,
+  ].join('\n');
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
 // ─── Monthly Charge Modal ─────────────────────────────────────
 
 function openAddMonthlyChargeModal() {
