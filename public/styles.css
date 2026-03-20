@@ -654,6 +654,24 @@ body {
 .terms-box h4:first-child { margin-top: 0; }
 .terms-box p { margin-bottom: .6rem; }
 
+/* Backup & Restore section */
+.backup-section {
+  padding: 1.25rem;
+}
+.backup-info {
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+  padding: .85rem 1rem; margin-bottom: 1rem; font-size: .875rem;
+  color: #1e40af; line-height: 1.65;
+}
+.backup-info strong { color: #1e3a8a; }
+.backup-actions {
+  display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: .85rem;
+}
+.backup-btn { min-width: 160px; }
+.backup-hint {
+  font-size: .8rem; color: var(--gray-500); margin: 0; line-height: 1.5;
+}
+
 /* Contact box */
 .about-contact-box {
   padding: 1.25rem; font-size: .875rem; color: var(--gray-700); line-height: 1.9;

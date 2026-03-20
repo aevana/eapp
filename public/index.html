@@ -241,6 +241,29 @@
           </div>
         </div>
 
+        <!-- Backup & Restore -->
+        <div class="about-section">
+          <h3 class="about-section-title">💾 Backup &amp; Restore Data</h3>
+          <div class="backup-section">
+            <div class="backup-info">
+              <p>
+                <strong>⚠️ Before reinstalling the APK</strong>, always export a backup.<br />
+                App data (customers, bills, charges) is stored on your device and will be <strong>lost if you uninstall</strong> the app.
+              </p>
+            </div>
+            <div class="backup-actions">
+              <button class="btn btn-primary backup-btn" onclick="backupAllData()">
+                📦 Export Backup (.json)
+              </button>
+              <button class="btn btn-secondary backup-btn" onclick="triggerRestoreBackup()">
+                📂 Restore from Backup
+              </button>
+              <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)" />
+            </div>
+            <p class="backup-hint">The backup file contains all your customers, bills, and monthly charges. Keep it safely on Google Drive or WhatsApp.</p>
+          </div>
+        </div>
+
         <!-- Terms & Conditions -->
         <div class="about-section">
           <h3 class="about-section-title">📜 Terms &amp; Conditions</h3>
@@ -584,6 +607,28 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal('modal-confirm-delete')">Cancel</button>
         <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Backup Confirm -->
+  <div id="modal-restore-confirm" class="modal-overlay" onclick="closeModalOutside(event,'modal-restore-confirm')">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>📂 Restore Backup</h3>
+        <button class="modal-close" onclick="closeModal('modal-restore-confirm')">✕</button>
+      </div>
+      <div style="padding:1rem 0;color:#475569;font-size:.9rem;">
+        <p style="margin-bottom:.75rem;"><strong>Backup contains:</strong></p>
+        <p id="restore-count" style="font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;"></p>
+        <p style="margin-bottom:.75rem;font-size:.8rem;color:#64748b;">Exported: <span id="restore-exported-at"></span></p>
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:.75rem;font-size:.82rem;color:#92400e;">
+          ⚠️ This will <strong>overwrite all existing data</strong> on this device. This cannot be undone.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('modal-restore-confirm')">Cancel</button>
+        <button class="btn btn-danger" onclick="doRestoreBackup()">✅ Restore Now</button>
       </div>
     </div>
   </div>

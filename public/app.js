@@ -979,6 +979,72 @@ async function doDelete(type, id) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  BACKUP & RESTORE
+// ══════════════════════════════════════════════════════════════
+
+function backupAllData() {
+  const backup = {
+    version:    '1',
+    exportedAt: new Date().toISOString(),
+    appId:      'ebt',
+    customers:  JSON.parse(localStorage.getItem('ebt_customers') || '[]'),
+    bills:      JSON.parse(localStorage.getItem('ebt_bills')     || '[]'),
+    charges:    JSON.parse(localStorage.getItem('ebt_charges')   || '[]'),
+  };
+  const total = backup.customers.length + backup.bills.length + backup.charges.length;
+  if (!total) { showToast('No data to backup.', 'warning'); return; }
+  const date = new Date().toISOString().split('T')[0];
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `ebt-backup-${date}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(`Backup saved — ${backup.customers.length} customers, ${backup.bills.length} bills, ${backup.charges.length} charges.`, 'success');
+}
+
+function triggerRestoreBackup() {
+  const inp = document.getElementById('restore-file-input');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+
+async function handleRestoreFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!Array.isArray(data.customers) || !Array.isArray(data.bills)) {
+      showToast('Invalid backup file — missing customers or bills.', 'error'); return;
+    }
+    window._pendingRestore = data;
+    const d = document;
+    d.getElementById('restore-count').textContent =
+      `${data.customers.length} customers · ${data.bills.length} bills · ${(data.charges || []).length} monthly charges`;
+    d.getElementById('restore-exported-at').textContent =
+      data.exportedAt ? new Date(data.exportedAt).toLocaleString('en-IN') : 'Unknown';
+    openModal('modal-restore-confirm');
+  } catch (e) { showToast('Could not read backup file.', 'error'); }
+}
+
+function doRestoreBackup() {
+  const data = window._pendingRestore;
+  if (!data) return;
+  try {
+    localStorage.setItem('ebt_customers', JSON.stringify(data.customers || []));
+    localStorage.setItem('ebt_bills',     JSON.stringify(data.bills     || []));
+    localStorage.setItem('ebt_charges',   JSON.stringify(data.charges   || []));
+    window._pendingRestore = null;
+    closeModal('modal-restore-confirm');
+    showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.charges||[]).length} charges.`, 'success');
+    loadCustomers();
+    loadBills();
+    loadTrackerByCustomer();
+  } catch (e) { showToast('Restore failed: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
 //  CSV EXPORT / IMPORT
 // ══════════════════════════════════════════════════════════════
 

@@ -6,10 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "android:add": "cap add android",
+    "android:init": "cap add android && cap sync android",
     "android:sync": "cap sync android",
     "android:open": "cap open android",
-    "android:build": "cap add android && cap sync android && cd android && ./gradlew assembleDebug",
+    "android:build": "cap sync android && cd android && ./gradlew assembleDebug",
     "migrate": "node scripts/generate-migration.js"
   },
   "dependencies": {
