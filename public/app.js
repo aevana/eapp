@@ -765,43 +765,6 @@ function renderBalanceSheet(data) {
       <div class="bs-stat-value">${summary.totalActiveQty}</div>
       <div class="bs-stat-hint">Avg ${summary.totalActiveQty * 20}–${summary.totalActiveQty * 25} units expected this month</div>
     </div>
-    <div class="bs-stat-card">
-      <div class="bs-stat-title">⚡ Units Projected vs Charged</div>
-      <div class="bs-stat-row">
-        <span class="bs-stat-chip bs-chip-blue">Projected: <strong>${stats.unitsProjected}</strong></span>
-        <span class="bs-stat-chip bs-chip-orange">Board Charged: <strong>${stats.unitsCharged}</strong></span>
-      </div>
-      <div class="bs-stat-diff ${stats.unitsDiff >= 0 ? 'diff-over' : 'diff-under'}">
-        ${stats.unitsDiff >= 0
-          ? `+${stats.unitsDiff} units over projection`
-          : `${stats.unitsDiff} units under projection`}
-      </div>
-    </div>
-    <div class="bs-stat-card">
-      <div class="bs-stat-title">💰 Expected Charge vs Board Bill</div>
-      <div class="bs-stat-row">
-        <span class="bs-stat-chip bs-chip-blue">Billed to Customers: <strong>₹${summary.totalCharged.toLocaleString()}</strong></span>
-        <span class="bs-stat-chip bs-chip-orange">Board Bill: <strong>₹${stats.projectedAmount.toLocaleString()}</strong></span>
-      </div>
-      <div class="bs-stat-diff ${summary.totalCharged >= stats.projectedAmount ? 'diff-over' : 'diff-under'}">
-        ${summary.totalCharged >= stats.projectedAmount
-          ? `Billed ₹${(summary.totalCharged - stats.projectedAmount).toLocaleString()} more than board cost`
-          : `Board cost ₹${(stats.projectedAmount - summary.totalCharged).toLocaleString()} more than billed`}
-      </div>
-    </div>
-    <div class="bs-stat-card">
-      <div class="bs-stat-title">🧾 Charged vs Collected</div>
-      <div class="bs-stat-row">
-        <span class="bs-stat-chip bs-chip-blue">Total Charged: <strong>₹${summary.totalCharged.toLocaleString()}</strong></span>
-        <span class="bs-stat-chip bs-chip-green">Collected: <strong>₹${summary.totalCollected.toLocaleString()}</strong></span>
-      </div>
-      <div class="bs-collection-bar">
-        <div class="bs-collection-fill" style="width:${stats.collectionRate}%"></div>
-      </div>
-      <div class="bs-stat-hint">Collection rate: <strong>${stats.collectionRate}%</strong>
-        &nbsp;·&nbsp; Pending: <strong style="color:var(--danger)">₹${summary.totalPending.toLocaleString()}</strong>
-      </div>
-    </div>
   `;
 
   // ─── Donut charts ────────────────────────────────────────────
@@ -822,7 +785,7 @@ function renderBalanceSheet(data) {
     </svg>`;
   }
 
-  function donutCard(title, v1, v2, color1, color2, label1, label2, fmt1, fmt2, centerText) {
+  function donutCard(title, v1, v2, color1, color2, label1, label2, fmt1, fmt2, centerText, note = '') {
     return `<div class="bs-donut-card">
       <div class="bs-donut-title">${title}</div>
       <div class="bs-donut-svg-wrap">${donutSVG(v1, v2, color1, color2, centerText)}</div>
@@ -836,6 +799,7 @@ function renderBalanceSheet(data) {
           <span>${label2}</span><strong>${fmt2}</strong>
         </div>
       </div>
+      ${note ? `<div class="bs-donut-note">${note}</div>` : ''}
     </div>`;
   }
 
@@ -844,27 +808,38 @@ function renderBalanceSheet(data) {
   const chargePct = summary.totalCharged
     ? Math.round((stats.projectedAmount / summary.totalCharged) * 100) + '%' : '—';
 
+  const unitsDiffNote = stats.unitsDiff >= 0
+    ? `<span class="diff-over">+${stats.unitsDiff} units over projection</span>`
+    : `<span class="diff-under">${Math.abs(stats.unitsDiff)} units under projection</span>`;
+
+  const chargeDiffNote = summary.totalCharged >= stats.projectedAmount
+    ? `<span class="diff-over">Billed ₹${(summary.totalCharged - stats.projectedAmount).toLocaleString()} more than board cost</span>`
+    : `<span class="diff-under">Board cost ₹${(stats.projectedAmount - summary.totalCharged).toLocaleString()} more than billed</span>`;
+
+  const collectionNote = `Collection rate: <strong>${stats.collectionRate}%</strong>
+    &nbsp;·&nbsp; Pending: <strong style="color:var(--danger)">₹${summary.totalPending.toLocaleString()}</strong>`;
+
   document.getElementById('bs-donut-charts').innerHTML =
     donutCard('⚡ Units Projected vs Charged',
       stats.unitsProjected, stats.unitsCharged,
       '#3b82f6', '#f97316',
       'Projected', 'Board Charged',
       stats.unitsProjected, stats.unitsCharged,
-      unitsPct) +
+      unitsPct, unitsDiffNote) +
     donutCard('💰 Expected Charge vs Board Bill',
       summary.totalCharged, stats.projectedAmount,
       '#3b82f6', '#f97316',
       'Billed to Customers', 'Board Bill',
       '₹' + summary.totalCharged.toLocaleString(),
       '₹' + stats.projectedAmount.toLocaleString(),
-      chargePct) +
+      chargePct, chargeDiffNote) +
     donutCard('🧾 Charged vs Collected',
       summary.totalCollected, summary.totalPending,
       '#22c55e', '#ef4444',
       'Collected', 'Pending',
       '₹' + summary.totalCollected.toLocaleString(),
       '₹' + summary.totalPending.toLocaleString(),
-      stats.collectionRate + '%');
+      stats.collectionRate + '%', collectionNote);
 
   // ─── Monthly charge detail ───────────────────────────────────
   if (hasCharge) {

@@ -430,6 +430,17 @@ body {
   font-weight: 700;
   color: var(--gray-800);
 }
+.bs-donut-note {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: var(--gray-700);
+}
+.bs-donut-note .diff-over  { background: none; color: #166534; font-weight: 600; }
+.bs-donut-note .diff-under { background: none; color: #991b1b; font-weight: 600; }
 @media (max-width: 900px) {
   .bs-donut-row { grid-template-columns: 1fr 1fr; }
   .bs-donut-row .bs-donut-card:last-child { grid-column: span 2; }
