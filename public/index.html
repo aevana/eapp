@@ -125,8 +125,17 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>#</th><th>Customer</th><th>Mobile</th><th>Start Date</th><th>Stop Date</th>
-                <th>Days</th><th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
+                <th>#</th>
+                <th class="th-sort" id="th-bm-customerName" onclick="sortByMonthTable('customerName')">Customer <span class="sort-icon">↕</span></th>
+                <th>Mobile</th>
+                <th class="th-sort" id="th-bm-startDate" onclick="sortByMonthTable('startDate')">Start Date <span class="sort-icon">↕</span></th>
+                <th class="th-sort" id="th-bm-stopDate" onclick="sortByMonthTable('stopDate')">Stop Date <span class="sort-icon">↕</span></th>
+                <th class="th-sort" id="th-bm-numberOfDays" onclick="sortByMonthTable('numberOfDays')">Days <span class="sort-icon">↕</span></th>
+                <th>Qty</th><th>Per Day (₹)</th>
+                <th class="th-sort" id="th-bm-total" onclick="sortByMonthTable('total')">Total (₹) <span class="sort-icon">↕</span></th>
+                <th class="th-sort" id="th-bm-collectedAmount" onclick="sortByMonthTable('collectedAmount')">Collected (₹) <span class="sort-icon">↕</span></th>
+                <th class="th-sort" id="th-bm-pendingAmount" onclick="sortByMonthTable('pendingAmount')">Pending (₹) <span class="sort-icon">↕</span></th>
+                <th class="th-sort" id="th-bm-status" onclick="sortByMonthTable('status')">Status <span class="sort-icon">↕</span></th>
               </tr>
             </thead>
             <tbody id="tracker-bills-tbody">

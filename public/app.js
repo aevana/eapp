@@ -694,6 +694,59 @@ function sendWhatsAppBillReminder(customerId, billId) {
 //  TRACKER – By Month/Year
 // ══════════════════════════════════════════════════════════════
 
+let byMonthBills = [];
+let byMonthSort  = { col: null, dir: 1 };
+
+function sortByMonthTable(col) {
+  byMonthSort.dir = byMonthSort.col === col ? byMonthSort.dir * -1 : 1;
+  byMonthSort.col = col;
+  renderByMonthTable();
+}
+
+function renderByMonthTable() {
+  const tbody = document.getElementById('tracker-bills-tbody');
+  if (!byMonthBills.length) return;
+
+  const { col, dir } = byMonthSort;
+  const sorted = [...byMonthBills].sort((a, b) => {
+    if (!col) return 0;
+    let av = a[col], bv = b[col];
+    if (col === 'startDate' || col === 'stopDate') {
+      av = av ? new Date(av).getTime() : 0;
+      bv = bv ? new Date(bv).getTime() : 0;
+    } else if (typeof av === 'string') {
+      av = av.toLowerCase(); bv = (bv || '').toLowerCase();
+    } else {
+      av = av ?? 0; bv = bv ?? 0;
+    }
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+
+  // Update sort icons
+  document.querySelectorAll('#tracker-by-bill .th-sort .sort-icon').forEach(el => el.textContent = '↕');
+  if (col) {
+    const th = document.getElementById('th-bm-' + col);
+    if (th) th.querySelector('.sort-icon').textContent = dir === 1 ? '↑' : '↓';
+  }
+
+  tbody.innerHTML = sorted.map((b, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${esc(b.customerName)}</strong></td>
+      <td>${esc(b.customerMobile || '')}</td>
+      <td>${fmtDate(b.startDate)}</td>
+      <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
+      <td>${b.numberOfDays ?? '—'}</td>
+      <td>${b.quantity}</td>
+      <td>₹${b.perDayCharge}</td>
+      <td>₹${(b.total ?? 0).toLocaleString()}</td>
+      <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
+      <td><span class="badge badge-${b.status}">${b.status}</span></td>
+    </tr>
+  `).join('');
+}
+
 async function loadTrackerByBill() {
   const month = document.getElementById('filter-month').value;
   const year  = document.getElementById('filter-year').value;
@@ -723,25 +776,13 @@ async function loadTrackerByBill() {
 
     const tbody = document.getElementById('tracker-bills-tbody');
     if (!bills.length) {
+      byMonthBills = [];
       tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found for this period.</td></tr>';
       return;
     }
-    tbody.innerHTML = bills.map((b, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td><strong>${esc(b.customerName)}</strong></td>
-        <td>${esc(b.customerMobile || '')}</td>
-        <td>${fmtDate(b.startDate)}</td>
-        <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
-        <td>${b.numberOfDays ?? '—'}</td>
-        <td>${b.quantity}</td>
-        <td>₹${b.perDayCharge}</td>
-        <td>₹${(b.total ?? 0).toLocaleString()}</td>
-        <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
-        <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
-        <td><span class="badge badge-${b.status}">${b.status}</span></td>
-      </tr>
-    `).join('');
+    byMonthBills = bills;
+    byMonthSort  = { col: null, dir: 1 };
+    renderByMonthTable();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
