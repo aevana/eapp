@@ -242,6 +242,7 @@ body {
 .tracker-panel { display: none; }
 .tracker-panel.active { display: block; }
 .hint { font-size: .85rem; color: var(--gray-400); margin-bottom: 1rem; }
+.field-hint { font-size: .8rem; font-weight: 400; color: var(--gray-400); }
 
 /* Customer accordion */
 .tracker-customer-card {

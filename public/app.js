@@ -171,7 +171,7 @@ async function loadBills() {
 function renderBills(bills) {
   const tbody = document.getElementById('bills-tbody');
   if (!bills.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty-row">No bills found.</td></tr>';
     return;
   }
   tbody.innerHTML = bills.map((b, i) => `
@@ -183,6 +183,7 @@ function renderBills(bills) {
       <td>${b.numberOfDays ?? 0}</td>
       <td>${b.quantity}</td>
       <td>₹${b.perDayCharge}</td>
+      <td>${b.arrears ? `₹${b.arrears.toLocaleString()}` : '—'}</td>
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
       <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
@@ -233,6 +234,7 @@ async function submitAddBill(e) {
     startDate:    document.getElementById('b-startdate').value,
     quantity:     parseInt(document.getElementById('b-qty').value),
     perDayCharge: parseInt(document.getElementById('b-perday').value),
+    arrears:      parseFloat(document.getElementById('b-arrears').value) || 0,
   };
   try {
     const bill = await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify(body) });

@@ -43,7 +43,7 @@ const DB = (() => {
     const stopDate  = bill.stopDate ? new Date(bill.stopDate) : new Date();
     const days      = Math.max(1, Math.ceil((stopDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
     const total     = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
-    const pending   = Math.max(0, total - (bill.collectedAmount || 0));
+    const pending   = Math.max(0, total + (bill.arrears || 0) - (bill.collectedAmount || 0));
     return {
       ...bill,
       customerName:   customer ? customer.name   : 'Unknown',
@@ -111,7 +111,7 @@ const DB = (() => {
     return bills;
   }
 
-  function addBill({ customerId, startDate, quantity, perDayCharge }) {
+  function addBill({ customerId, startDate, quantity, perDayCharge, arrears }) {
     if (!customerId || !startDate) throw new Error('Customer and start date required');
     const bills = read(KEYS.bills);
     const bill = {
@@ -121,6 +121,7 @@ const DB = (() => {
       stopDate: null,
       quantity: quantity || 1,
       perDayCharge: perDayCharge || 200,
+      arrears: parseFloat(arrears) || 0,
       collectedAmount: 0,
       status: 'active',
       createdAt: new Date().toISOString(),
