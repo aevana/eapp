@@ -39,7 +39,12 @@
     <section id="tab-customers" class="tab-section active">
       <div class="section-header">
         <h2>Customer Management</h2>
-        <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="exportCustomersCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary" onclick="importCSVFile('customers')">📤 Import CSV</button>
+          <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+        </div>
+        <input type="file" id="csv-import-customers" accept=".csv" style="display:none" onchange="handleCSVImport(event,'customers')" />
       </div>
       <div class="search-bar">
         <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
@@ -62,7 +67,12 @@
     <section id="tab-bills" class="tab-section">
       <div class="section-header">
         <h2>Bill Management</h2>
-        <button class="btn btn-primary" onclick="openAddBillModal()">+ Add Bill</button>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="exportBillsCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary" onclick="importCSVFile('bills')">📤 Import CSV</button>
+          <button class="btn btn-primary" onclick="openAddBillModal()">+ Add Bill</button>
+        </div>
+        <input type="file" id="csv-import-bills" accept=".csv" style="display:none" onchange="handleCSVImport(event,'bills')" />
       </div>
       <div class="filter-row">
         <select id="bill-filter-status" onchange="loadBills()">
@@ -77,11 +87,11 @@
           <thead>
             <tr>
               <th>#</th><th>Customer</th><th>Start Date</th><th>Stop Date</th><th>Days</th>
-              <th>Qty</th><th>Per Day (₹)</th><th>Arrears (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Actions</th>
+              <th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="bills-tbody">
-            <tr><td colspan="13" class="empty-row">Loading…</td></tr>
+            <tr><td colspan="12" class="empty-row">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -119,25 +129,14 @@
           <label>Year</label>
           <input type="number" id="filter-year" value="2025" min="2000" max="2100" />
           <button class="btn btn-primary" onclick="loadTrackerByBill()">View</button>
-          <button class="btn btn-secondary" id="btn-bm-csv" style="display:none" onclick="exportByMonthCSV()">📥 Download CSV</button>
-          <button class="btn btn-whatsapp"  id="btn-bm-wa"  style="display:none" onclick="shareByMonthReport()">📱 Share Report</button>
         </div>
         <div id="tracker-summary-cards" class="summary-cards"></div>
         <div class="table-wrap" style="margin-top:1rem">
           <table class="data-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th class="th-sort" id="th-bm-customerName" onclick="sortByMonthTable('customerName')">Customer <span class="sort-icon">↕</span></th>
-                <th>Mobile</th>
-                <th class="th-sort" id="th-bm-startDate" onclick="sortByMonthTable('startDate')">Start Date <span class="sort-icon">↕</span></th>
-                <th class="th-sort" id="th-bm-stopDate" onclick="sortByMonthTable('stopDate')">Stop Date <span class="sort-icon">↕</span></th>
-                <th class="th-sort" id="th-bm-numberOfDays" onclick="sortByMonthTable('numberOfDays')">Days <span class="sort-icon">↕</span></th>
-                <th>Qty</th><th>Per Day (₹)</th>
-                <th class="th-sort" id="th-bm-total" onclick="sortByMonthTable('total')">Total (₹) <span class="sort-icon">↕</span></th>
-                <th class="th-sort" id="th-bm-collectedAmount" onclick="sortByMonthTable('collectedAmount')">Collected (₹) <span class="sort-icon">↕</span></th>
-                <th class="th-sort" id="th-bm-pendingAmount" onclick="sortByMonthTable('pendingAmount')">Pending (₹) <span class="sort-icon">↕</span></th>
-                <th class="th-sort" id="th-bm-status" onclick="sortByMonthTable('status')">Status <span class="sort-icon">↕</span></th>
+                <th>#</th><th>Customer</th><th>Mobile</th><th>Start Date</th><th>Stop Date</th>
+                <th>Days</th><th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
               </tr>
             </thead>
             <tbody id="tracker-bills-tbody">
@@ -167,6 +166,9 @@
             <button class="btn btn-primary" onclick="loadBalanceSheet()">View</button>
           </div>
           <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
+          <button class="btn btn-secondary" onclick="exportMonthlyChargesCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary" onclick="importCSVFile('monthly-charges')">📤 Import CSV</button>
+          <input type="file" id="csv-import-monthly-charges" accept=".csv" style="display:none" onchange="handleCSVImport(event,'monthly-charges')" />
         </div>
 
         <!-- Revenue hero card -->
@@ -222,7 +224,7 @@
             </div>
             <div class="about-meta-item">
               <span class="about-meta-label">Version</span>
-              <span class="about-meta-value" id="about-version">…</span>
+              <span class="about-meta-value">1.0.0</span>
             </div>
             <div class="about-meta-item">
               <span class="about-meta-label">Copyright</span>
@@ -279,7 +281,7 @@
         <div class="about-section">
           <h3 class="about-section-title">📧 Contact &amp; Support</h3>
           <div class="about-contact-box">
-            <p><strong>App:</strong> Electricity Bills Tracker v<span id="about-version-footer">…</span></p>
+            <p><strong>App:</strong> Electricity Bills Tracker v1.0.0</p>
             <p><strong>Author:</strong> Anji Evana</p>
             <p><strong>Company:</strong> iApp Solutions Pvt. Ltd.</p>
             <p><strong>Platform:</strong> Web Browser &amp; Android (via Capacitor)</p>
@@ -383,10 +385,6 @@
             <label>Per Day Charge (₹)</label>
             <input type="number" id="b-perday" value="200" min="1" />
           </div>
-        </div>
-        <div class="form-group">
-          <label>Arrears (₹) <span class="field-hint">— previous outstanding amount, if any</span></label>
-          <input type="number" id="b-arrears" value="0" min="0" placeholder="0" />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-bill')">Cancel</button>
@@ -549,7 +547,7 @@
         <h3>⏹ Stop Bill</h3>
         <button class="modal-close" onclick="closeModal('modal-stop-sure')">✕</button>
       </div>
-      <p id="stop-sure-msg" style="margin:1rem 0;padding:1rem;color:#475569;">Are you sure you want to stop this bill?</p>
+      <p id="stop-sure-msg" style="margin:1rem 0;color:#475569;">Are you sure you want to stop this bill?</p>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal('modal-stop-sure')">Cancel</button>
         <button class="btn btn-danger" id="stop-sure-confirm-btn">Yes, Stop</button>
