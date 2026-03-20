@@ -41,7 +41,7 @@ const DB = (() => {
     const customer  = customers.find(c => c.id === bill.customerId);
     const startDate = new Date(bill.startDate);
     const stopDate  = bill.stopDate ? new Date(bill.stopDate) : new Date();
-    const days      = Math.max(0, Math.ceil((stopDate - startDate) / (1000 * 60 * 60 * 24)));
+    const days      = Math.max(1, Math.ceil((stopDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
     const total     = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
     const pending   = Math.max(0, total - (bill.collectedAmount || 0));
     return {
