@@ -499,17 +499,17 @@ function generateBillCanvas(d) {
   // Header text
   c.fillStyle = '#ffffff';
   c.font = 'bold 24px system-ui, -apple-system, sans-serif';
-  c.fillText('\u26A1 Electricity Bill', PAD, 30);
+  c.fillText('\u26A1 Electricity Bill', PAD, 50);
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = 'rgba(255,255,255,0.75)';
-  c.fillText('iApp Solutions', PAD, 78);
+  c.fillText('iApp Solutions', PAD, 88);
 
-  let y = 114;
+  let y = 134;
 
   // Greeting
   c.fillStyle = '#1e293b';
   c.font = 'bold 17px system-ui, sans-serif';
-  c.fillText('Dear ' + d.name + ',', PAD, y); y += 50;
+  c.fillText('Dear ' + d.name + ',', PAD, y); y += 20;
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = '#64748b';
   c.fillText('Your electricity bill has been updated.', PAD, y); y += 18;
