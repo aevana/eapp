@@ -570,11 +570,28 @@ function showBillImageModal(mobile, data) {
 
   const clean = (mobile || '').replace(/\D/g, '');
 
-  document.getElementById('bill-img-download').onclick = () => {
+  function triggerBlobDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.download = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-    a.href = cvs.toDataURL('image/png');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  document.getElementById('bill-img-download').onclick = () => {
+    const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
+    cvs.toBlob(blob => {
+      // Try Web Share API first (works best on mobile/APK)
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Electricity Bill' }).catch(() => triggerBlobDownload(blob, filename));
+      } else {
+        triggerBlobDownload(blob, filename);
+      }
+    }, 'image/png');
   };
 
   document.getElementById('bill-img-share').onclick = () => {
@@ -583,13 +600,10 @@ function showBillImageModal(mobile, data) {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; } catch (e) {}
       }
-      // Fallback: download image then open WhatsApp
-      const a = document.createElement('a');
-      a.download = 'electricity-bill.png';
-      a.href = cvs.toDataURL('image/png');
-      a.click();
-      if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
-    });
+      // Fallback: save image then open WhatsApp
+      triggerBlobDownload(blob, 'electricity-bill.png');
+      if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 800);
+    }, 'image/png');
   };
 
   openModal('modal-bill-image');
