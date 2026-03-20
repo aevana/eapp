@@ -404,7 +404,7 @@ function renderTrackerByCustomer(data) {
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:.6rem;">
-            ${(hasActive || totalPending > 0) ? `
+            ${hasActive ? `
               <button class="btn btn-whatsapp" title="Send WhatsApp reminder"
                 onclick="event.stopPropagation(); sendWhatsAppReminder('${c.id}')">
                 📱 WhatsApp
