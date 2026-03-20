@@ -179,8 +179,8 @@ function renderBills(bills) {
       <td>${i + 1}</td>
       <td><strong>${esc(b.customerName || '—')}</strong></td>
       <td>${fmtDate(b.startDate)}</td>
-      <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
-      <td>${b.numberOfDays ?? '—'}</td>
+      <td>${b.stopDate ? fmtDate(b.stopDate) : `<span class="running-date">${fmtDate(toDateStr(new Date()))} ⏳</span>`}</td>
+      <td>${b.numberOfDays ?? 0}</td>
       <td>${b.quantity}</td>
       <td>₹${b.perDayCharge}</td>
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
