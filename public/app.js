@@ -490,23 +490,32 @@ function generateBillCanvas(d) {
     c.beginPath(); c.moveTo(PAD, yy); c.lineTo(W - PAD, yy); c.stroke();
   };
 
+  // Today's date formatted
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
   // Card background
   rr(0, 0, W, H, 20); c.fillStyle = '#ffffff'; c.fill();
 
   // Green header (top corners rounded, bottom square via filled rect)
   c.fillStyle = '#16a34a';
-  rr(0, 0, W, 96, 20); c.fill();
-  c.fillRect(0, 76, W, 20);
+  rr(0, 0, W, 100, 20); c.fill();
+  c.fillRect(0, 80, W, 20);
 
-  // Header text
+  // Header text — title with more top padding
   c.fillStyle = '#ffffff';
   c.font = 'bold 24px system-ui, -apple-system, sans-serif';
-  c.fillText('\u26A1 Electricity Bill', PAD, 50);
+  c.fillText('\u26A1 Electricity Bill', PAD, 60);
+
+  // Sub-row: "iApp Solutions" left, today's date right
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = 'rgba(255,255,255,0.75)';
-  c.fillText('iApp Solutions', PAD, 78);
+  c.textAlign = 'left';
+  c.fillText('iApp Solutions', PAD, 84);
+  c.textAlign = 'right';
+  c.fillText(todayStr, W - PAD, 84);
+  c.textAlign = 'left';
 
-  let y = 114;
+  let y = 118;
 
   // Greeting
   c.fillStyle = '#1e293b';
