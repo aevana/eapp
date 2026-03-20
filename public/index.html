@@ -29,6 +29,7 @@
     <button class="tab-btn active" data-tab="customers">👤 Customers</button>
     <button class="tab-btn" data-tab="bills">📄 Bills</button>
     <button class="tab-btn" data-tab="tracker">📊 Tracker</button>
+    <button class="tab-btn" data-tab="backup">💾 Backup</button>
     <button class="tab-btn" data-tab="about">ℹ️ About</button>
   </nav>
 
@@ -205,6 +206,33 @@
 
     </section>
 
+    <!-- ══════════════ BACKUP TAB ══════════════ -->
+    <section id="tab-backup" class="tab-section">
+      <div class="about-page">
+        <div class="about-section">
+          <h3 class="about-section-title">💾 Backup &amp; Restore Data</h3>
+          <div class="backup-section">
+            <div class="backup-info">
+              <p>
+                <strong>⚠️ Before reinstalling the APK</strong>, always export a backup.<br />
+                App data (customers, bills, charges) is stored on your device and will be <strong>lost if you uninstall</strong> the app.
+              </p>
+            </div>
+            <div class="backup-actions">
+              <button class="btn btn-primary backup-btn" onclick="backupAllData()">
+                📦 Export Backup (.json)
+              </button>
+              <button class="btn btn-secondary backup-btn" onclick="triggerRestoreBackup()">
+                📂 Restore from Backup
+              </button>
+              <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)" />
+            </div>
+            <p class="backup-hint">The backup file contains all your customers, bills, and monthly charges. Keep it safely on Google Drive or WhatsApp.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ══════════════ ABOUT TAB ══════════════ -->
     <section id="tab-about" class="tab-section">
       <div class="about-page">
@@ -238,29 +266,6 @@
               <span class="about-meta-label">Platform</span>
               <span class="about-meta-value">Web &amp; Android</span>
             </div>
-          </div>
-        </div>
-
-        <!-- Backup & Restore -->
-        <div class="about-section">
-          <h3 class="about-section-title">💾 Backup &amp; Restore Data</h3>
-          <div class="backup-section">
-            <div class="backup-info">
-              <p>
-                <strong>⚠️ Before reinstalling the APK</strong>, always export a backup.<br />
-                App data (customers, bills, charges) is stored on your device and will be <strong>lost if you uninstall</strong> the app.
-              </p>
-            </div>
-            <div class="backup-actions">
-              <button class="btn btn-primary backup-btn" onclick="backupAllData()">
-                📦 Export Backup (.json)
-              </button>
-              <button class="btn btn-secondary backup-btn" onclick="triggerRestoreBackup()">
-                📂 Restore from Backup
-              </button>
-              <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)" />
-            </div>
-            <p class="backup-hint">The backup file contains all your customers, bills, and monthly charges. Keep it safely on Google Drive or WhatsApp.</p>
           </div>
         </div>
 
