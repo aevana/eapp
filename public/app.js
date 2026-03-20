@@ -404,7 +404,7 @@ function renderTrackerByCustomer(data) {
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:.6rem;">
-            ${hasActive ? `
+            ${(hasActive || totalPending > 0) ? `
               <button class="btn btn-whatsapp" title="Send WhatsApp reminder"
                 onclick="event.stopPropagation(); sendWhatsAppReminder('${c.id}')">
                 📱 WhatsApp
@@ -445,7 +445,7 @@ function renderTrackerByCustomer(data) {
                     </td>
                     <td><span class="badge badge-${b.status}">${b.status}</span></td>
                     <td>
-                      ${b.status === 'active' ? `
+                      ${(b.status === 'active' || (b.pendingAmount ?? 0) > 0) ? `
                         <button class="btn btn-whatsapp btn-icon"
                           title="Remind via WhatsApp"
                           onclick="sendWhatsAppBillReminder('${c.id}', '${b.id}')">
@@ -609,17 +609,17 @@ function promptWhatsApp(mobile, message) {
   openModal('modal-wa-prompt');
 }
 
-// Send reminder for ALL active bills of a customer
+// Send reminder for ALL bills with pending amount (active or stopped) for a customer
 function sendWhatsAppReminder(customerId) {
   const customer = trackerData.find(c => c.id === customerId);
   if (!customer) return;
 
-  const activeBills  = customer.bills.filter(b => b.status === 'active');
-  const totalPending = activeBills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
+  const pendingBills = customer.bills.filter(b => (b.pendingAmount || 0) > 0);
+  const totalPending = pendingBills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
   if (!totalPending) { showToast('No pending amount for this customer.', 'warning'); return; }
 
   const mobile = customer.mobile.replace(/\D/g, '');
-  const lines  = activeBills.map((b, i) =>
+  const lines  = pendingBills.map((b, i) =>
     `${i + 1}. ${fmtDate(b.startDate)} → ${b.stopDate ? fmtDate(b.stopDate) : 'Running'} | Qty:${b.quantity} | Pending: ₹${(b.pendingAmount || 0).toLocaleString()}`
   );
   const msg = [
