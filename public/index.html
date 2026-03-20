@@ -29,6 +29,7 @@
     <button class="tab-btn active" data-tab="customers">👤 Customers</button>
     <button class="tab-btn" data-tab="bills">📄 Bills</button>
     <button class="tab-btn" data-tab="tracker">📊 Tracker</button>
+    <button class="tab-btn" data-tab="backup">💾 Backup</button>
     <button class="tab-btn" data-tab="about">ℹ️ About</button>
   </nav>
 
@@ -37,32 +38,52 @@
 
     <!-- ══════════════ CUSTOMERS TAB ══════════════ -->
     <section id="tab-customers" class="tab-section active">
-      <div class="section-header">
-        <h2>Customer Management</h2>
-        <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+
+      <!-- ── Customer List View ── -->
+      <div id="customer-list-view">
+        <div class="section-header">
+          <h2>Customer Management</h2>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="exportCustomersCSV()">📥 Export CSV</button>
+            <button class="btn btn-secondary" onclick="importCSVFile('customers')">📤 Import CSV</button>
+            <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+          </div>
+          <input type="file" id="csv-import-customers" accept=".csv" style="display:none" onchange="handleCSVImport(event,'customers')" />
+        </div>
+        <div class="search-bar">
+          <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
+        </div>
+        <div id="customer-grid" class="customer-grid">
+          <p class="empty-row">Loading…</p>
+        </div>
       </div>
-      <div class="search-bar">
-        <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
+
+      <!-- ── Customer Detail View ── -->
+      <div id="customer-detail-view" style="display:none;">
+        <div class="cdetail-header">
+          <button class="btn btn-secondary" onclick="closeCustomerPage()">← Back</button>
+          <h2 id="cdetail-title" class="cdetail-title"></h2>
+          <div class="cdetail-header-actions">
+            <button class="btn btn-icon btn-edit" id="cdetail-edit-btn">✏️ Edit</button>
+            <button class="btn btn-icon btn-del"  id="cdetail-del-btn">🗑 Delete</button>
+          </div>
+        </div>
+        <div id="cdetail-info"></div>
+        <div id="cdetail-bills"></div>
       </div>
-      <div class="table-wrap">
-        <table class="data-table" id="customer-table">
-          <thead>
-            <tr>
-              <th>#</th><th>Name</th><th>Mobile Number</th><th>Address</th><th>Registered On</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="customer-tbody">
-            <tr><td colspan="6" class="empty-row">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
+
     </section>
 
     <!-- ══════════════ BILLS TAB ══════════════ -->
     <section id="tab-bills" class="tab-section">
       <div class="section-header">
         <h2>Bill Management</h2>
-        <button class="btn btn-primary" onclick="openAddBillModal()">+ Add Bill</button>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="exportBillsCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary" onclick="importCSVFile('bills')">📤 Import CSV</button>
+          <button class="btn btn-primary" onclick="openAddBillModal()">+ Add Bill</button>
+        </div>
+        <input type="file" id="csv-import-bills" accept=".csv" style="display:none" onchange="handleCSVImport(event,'bills')" />
       </div>
       <div class="filter-row">
         <select id="bill-filter-status" onchange="loadBills()">
@@ -156,6 +177,9 @@
             <button class="btn btn-primary" onclick="loadBalanceSheet()">View</button>
           </div>
           <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
+          <button class="btn btn-secondary" onclick="exportMonthlyChargesCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary" onclick="importCSVFile('monthly-charges')">📤 Import CSV</button>
+          <input type="file" id="csv-import-monthly-charges" accept=".csv" style="display:none" onchange="handleCSVImport(event,'monthly-charges')" />
         </div>
 
         <!-- Revenue hero card -->
@@ -172,7 +196,13 @@
 
         <!-- Bills for that month -->
         <div id="bs-bills-section" style="margin-top:1.5rem;display:none;">
-          <h3 class="bs-section-title">Bills Active in this Month</h3>
+          <div class="bs-bills-header">
+            <h3 class="bs-section-title" style="margin:0;">Bills Active in this Month</h3>
+            <div class="bs-bills-actions">
+              <button class="btn btn-secondary" onclick="exportBSBillsCSV()">📥 Download CSV</button>
+              <button class="btn btn-whatsapp" onclick="shareBSBillsWhatsApp()">📱 Share via WhatsApp</button>
+            </div>
+          </div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
@@ -190,6 +220,33 @@
 
       </div><!-- /tracker-balance-sheet -->
 
+    </section>
+
+    <!-- ══════════════ BACKUP TAB ══════════════ -->
+    <section id="tab-backup" class="tab-section">
+      <div class="about-page">
+        <div class="about-section">
+          <h3 class="about-section-title">💾 Backup &amp; Restore Data</h3>
+          <div class="backup-section">
+            <div class="backup-info">
+              <p>
+                <strong>⚠️ Before reinstalling the APK</strong>, always export a backup.<br />
+                App data (customers, bills, charges) is stored on your device and will be <strong>lost if you uninstall</strong> the app.
+              </p>
+            </div>
+            <div class="backup-actions">
+              <button class="btn btn-primary backup-btn" onclick="backupAllData()">
+                📦 Export Backup (.json)
+              </button>
+              <button class="btn btn-secondary backup-btn" onclick="triggerRestoreBackup()">
+                📂 Restore from Backup
+              </button>
+              <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)" />
+            </div>
+            <p class="backup-hint">The backup file contains all your customers, bills, and monthly charges. Keep it safely on Google Drive or WhatsApp.</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ══════════════ ABOUT TAB ══════════════ -->
@@ -211,7 +268,7 @@
             </div>
             <div class="about-meta-item">
               <span class="about-meta-label">Version</span>
-              <span class="about-meta-value">1.0.0</span>
+              <span class="about-meta-value" id="app-version">1.0.0</span>
             </div>
             <div class="about-meta-item">
               <span class="about-meta-label">Copyright</span>
@@ -268,7 +325,7 @@
         <div class="about-section">
           <h3 class="about-section-title">📧 Contact &amp; Support</h3>
           <div class="about-contact-box">
-            <p><strong>App:</strong> Electricity Bills Tracker v1.0.0</p>
+            <p><strong>App:</strong> Electricity Bills Tracker v<span id="app-version-contact">1.0.0</span></p>
             <p><strong>Author:</strong> Anji Evana</p>
             <p><strong>Company:</strong> iApp Solutions Pvt. Ltd.</p>
             <p><strong>Platform:</strong> Web Browser &amp; Android (via Capacitor)</p>
@@ -571,6 +628,28 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal('modal-confirm-delete')">Cancel</button>
         <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Backup Confirm -->
+  <div id="modal-restore-confirm" class="modal-overlay" onclick="closeModalOutside(event,'modal-restore-confirm')">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>📂 Restore Backup</h3>
+        <button class="modal-close" onclick="closeModal('modal-restore-confirm')">✕</button>
+      </div>
+      <div style="padding:1rem 0;color:#475569;font-size:.9rem;">
+        <p style="margin-bottom:.75rem;"><strong>Backup contains:</strong></p>
+        <p id="restore-count" style="font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;"></p>
+        <p style="margin-bottom:.75rem;font-size:.8rem;color:#64748b;">Exported: <span id="restore-exported-at"></span></p>
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:.75rem;font-size:.82rem;color:#92400e;">
+          ⚠️ This will <strong>overwrite all existing data</strong> on this device. This cannot be undone.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('modal-restore-confirm')">Cancel</button>
+        <button class="btn btn-danger" onclick="doRestoreBackup()">✅ Restore Now</button>
       </div>
     </div>
   </div>

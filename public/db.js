@@ -41,9 +41,9 @@ const DB = (() => {
     const customer  = customers.find(c => c.id === bill.customerId);
     const startDate = new Date(bill.startDate);
     const stopDate  = bill.stopDate ? new Date(bill.stopDate) : new Date();
-    const days      = Math.max(0, Math.ceil((stopDate - startDate) / (1000 * 60 * 60 * 24)));
+    const days      = Math.max(1, Math.ceil((stopDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
     const total     = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
-    const pending   = Math.max(0, total - (bill.collectedAmount || 0));
+    const pending   = Math.max(0, total + (bill.arrears || 0) - (bill.collectedAmount || 0));
     return {
       ...bill,
       customerName:   customer ? customer.name   : 'Unknown',
@@ -104,14 +104,15 @@ const DB = (() => {
   //  BILLS
   // ══════════════════════════════════════════════════════════════
 
-  function getBills(status) {
+  function getBills(status, customerId) {
     const customers = readCustomers();
     let bills = read(KEYS.bills).map(b => enrichBill(b, customers));
-    if (status) bills = bills.filter(b => b.status === status);
+    if (status)     bills = bills.filter(b => b.status === status);
+    if (customerId) bills = bills.filter(b => b.customerId === customerId);
     return bills;
   }
 
-  function addBill({ customerId, startDate, quantity, perDayCharge }) {
+  function addBill({ customerId, startDate, quantity, perDayCharge, arrears }) {
     if (!customerId || !startDate) throw new Error('Customer and start date required');
     const bills = read(KEYS.bills);
     const bill = {
@@ -121,6 +122,7 @@ const DB = (() => {
       stopDate: null,
       quantity: quantity || 1,
       perDayCharge: perDayCharge || 200,
+      arrears: parseFloat(arrears) || 0,
       collectedAmount: 0,
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -289,7 +291,7 @@ const DB = (() => {
         break;
 
       case 'bills':
-        if (method === 'GET')    return getBills(params.status);
+        if (method === 'GET')    return getBills(params.status, params.customerId);
         if (method === 'POST')   return addBill(body);
         if (method === 'PUT')    return updateBill(id, body);
         if (method === 'DELETE') return deleteBill(id);

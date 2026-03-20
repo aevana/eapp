@@ -5,6 +5,18 @@ let trackerData    = [];   // by-customer tracker cache
 let lastBSData     = null; // last loaded balance-sheet payload
 
 // ── Bootstrap ──────────────────────────────────────────────────
+// Load version from version.txt and populate About page
+fetch('version.txt')
+  .then(r => r.text())
+  .then(v => {
+    const ver = v.trim();
+    const el1 = document.getElementById('app-version');
+    const el2 = document.getElementById('app-version-contact');
+    if (el1) el1.textContent = ver;
+    if (el2) el2.textContent = ver;
+  })
+  .catch(() => {});
+
 document.addEventListener('DOMContentLoaded', () => {
   // Main tab navigation
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -63,24 +75,134 @@ async function loadCustomers() {
 }
 
 function renderCustomers(list) {
-  const tbody = document.getElementById('customer-tbody');
+  const grid = document.getElementById('customer-grid');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No customers found.</td></tr>';
+    grid.innerHTML = '<p class="empty-row">No customers found.</p>';
     return;
   }
-  tbody.innerHTML = list.map((c, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td><strong>${esc(c.name)}</strong></td>
-      <td>${esc(c.mobile)}</td>
-      <td>${esc(c.address || '—')}</td>
-      <td>${fmtDate(c.createdAt)}</td>
-      <td class="actions-cell">
-        <button class="btn btn-icon btn-edit" onclick="openEditCustomer('${c.id}')">✏️ Edit</button>
-        <button class="btn btn-icon btn-del"  onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑 Delete</button>
-      </td>
-    </tr>
+  grid.innerHTML = list.map(c => `
+    <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+      <div class="cust-card-info">
+        <div class="cust-card-name">${esc(c.name)}</div>
+        <div class="cust-card-mobile">${esc(c.mobile)}</div>
+      </div>
+      <div class="cust-card-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
+        <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
+      </div>
+    </div>
   `).join('');
+}
+
+// ── Customer Detail Page ──────────────────────────────────────
+
+let currentCustomerId = null;
+
+async function openCustomerPage(id) {
+  const customer = allCustomers.find(c => c.id === id);
+  if (!customer) return;
+  currentCustomerId = id;
+  try {
+    const bills = await apiFetch(`/api/bills?customerId=${id}`);
+    document.getElementById('customer-list-view').style.display   = 'none';
+    document.getElementById('customer-detail-view').style.display = 'block';
+    document.getElementById('cdetail-title').textContent = customer.name;
+    document.getElementById('cdetail-edit-btn').onclick = () => openEditCustomer(id);
+    document.getElementById('cdetail-del-btn').onclick  = () => confirmDelete('customer', id, customer.name);
+    renderCustomerPage(customer, bills);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function closeCustomerPage() {
+  currentCustomerId = null;
+  document.getElementById('customer-detail-view').style.display = 'none';
+  document.getElementById('customer-list-view').style.display   = 'block';
+}
+
+async function refreshCustomerPage() {
+  if (currentCustomerId) await openCustomerPage(currentCustomerId);
+}
+
+function renderCustomerPage(customer, bills) {
+  document.getElementById('cdetail-info').innerHTML = `
+    <div class="cdetail-info-card">
+      <div class="cdetail-info-row"><span>Name</span><strong>${esc(customer.name)}</strong></div>
+      <div class="cdetail-info-row"><span>Mobile</span><strong>${esc(customer.mobile)}</strong></div>
+      <div class="cdetail-info-row"><span>Address</span><strong>${esc(customer.address || '—')}</strong></div>
+      <div class="cdetail-info-row"><span>Registered</span><strong>${fmtDate(customer.createdAt)}</strong></div>
+    </div>
+  `;
+
+  const billsHtml = !bills.length
+    ? '<p class="empty-row" style="padding:1rem 0;">No bills found for this customer.</p>'
+    : bills.map(b => `
+      <div class="cbill-card cbill-${b.status}">
+        <div class="cbill-top">
+          <span class="badge badge-${b.status}">${b.status}</span>
+          <span class="cbill-period">${fmtDate(b.startDate)} → ${b.stopDate ? fmtDate(b.stopDate) : 'Running ⚡'}</span>
+        </div>
+        <div class="cbill-stats">
+          <div class="cbill-stat"><span>Qty</span><strong>${b.quantity}</strong></div>
+          <div class="cbill-stat"><span>Rate/day</span><strong>₹${b.perDayCharge}</strong></div>
+          <div class="cbill-stat"><span>Days</span><strong>${b.numberOfDays ?? '—'}</strong></div>
+          <div class="cbill-stat"><span>Total</span><strong>₹${(b.total ?? 0).toLocaleString()}</strong></div>
+          <div class="cbill-stat"><span>Collected</span><strong style="color:var(--success)">₹${(b.collectedAmount ?? 0).toLocaleString()}</strong></div>
+          <div class="cbill-stat"><span>Pending</span><strong style="color:${b.pendingAmount > 0 ? 'var(--danger)' : 'inherit'}">₹${(b.pendingAmount ?? 0).toLocaleString()}</strong></div>
+        </div>
+        <div class="cbill-actions">
+          <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
+          ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
+          <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
+          <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill for ${esc(customer.name)}')">🗑 Delete</button>
+        </div>
+      </div>
+    `).join('');
+
+  document.getElementById('cdetail-bills').innerHTML = `
+    <div class="cdetail-bills-header">
+      <h3 class="bs-section-title" style="margin:0;">Bills (${bills.length})</h3>
+      <button class="btn btn-primary" onclick="openAddBillForCustomer('${customer.id}')">+ Add Bill</button>
+    </div>
+    <div class="cbill-list">${billsHtml}</div>
+  `;
+}
+
+function openAddBillForCustomer(customerId) {
+  populateCustomerDropdown('b-customer');
+  document.getElementById('b-customer').value = customerId;
+  setDateChip('today');
+  openModal('modal-add-bill');
+}
+
+// Wrapper that can work without trackerData being loaded
+function sendWhatsAppBillReminderFromDetail(customerId, billId) {
+  // try trackerData first, fall back to allBills + allCustomers
+  if (trackerData.find(c => c.id === customerId)) {
+    sendWhatsAppBillReminder(customerId, billId);
+    return;
+  }
+  const customer = allCustomers.find(c => c.id === customerId);
+  const bill     = allBills.find(b => b.id === billId);
+  if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
+  const start   = bill.startDate ? new Date(bill.startDate) : null;
+  const stop    = bill.stopDate  ? new Date(bill.stopDate)  : new Date();
+  const days    = start ? Math.max(1, Math.ceil((stop - start) / 86400000)) : 1;
+  const total   = bill.total || 0;
+  const paid    = bill.collectedAmount || 0;
+  const pending = bill.pendingAmount || 0;
+  const rate    = (days && bill.quantity) ? Math.round(total / (days * bill.quantity)) : 0;
+  const fmt     = d => d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  showBillImageModal(customer.mobile, {
+    name:       customer.name,
+    period:     fmt(start) + ' → ' + (bill.stopDate ? fmt(stop) : 'Running'),
+    days:       String(days),
+    sets:       String(bill.quantity),
+    rate:       '₹' + rate + '/day',
+    total:      '₹' + total.toLocaleString('en-IN'),
+    paid:       '₹' + paid.toLocaleString('en-IN'),
+    pending:    '₹' + pending.toLocaleString('en-IN'),
+    pendingAmt: pending,
+  });
 }
 
 function filterCustomers() {
@@ -229,6 +351,7 @@ async function submitAddBill(e) {
     showToast('Bill added!', 'success');
     loadBills();
     loadTrackerByCustomer();
+    refreshCustomerPage();
     promptWhatsApp(bill.customerMobile, [
       `Dear ${bill.customerName},`,
       ``,
@@ -295,6 +418,7 @@ async function submitUpdateBill(e) {
     showToast('Bill updated!', 'success');
     loadBills();
     loadTrackerByCustomer();
+    refreshCustomerPage();
     promptWhatsApp(bill.customerMobile, [
       `Dear ${bill.customerName},`,
       ``,
@@ -343,6 +467,7 @@ async function doStopBill(id) {
     showToast('Bill stopped!', 'warning');
     loadBills();
     loadTrackerByCustomer();
+    refreshCustomerPage();
     const text = document.getElementById('stop-confirm-msg').value;
     const clean = (bill.customerMobile || '').replace(/\D/g, '');
     if (clean) window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(text)}`, '_blank');
@@ -490,14 +615,14 @@ function generateBillCanvas(d) {
   c.fillText('\u26A1 Electricity Bill', PAD, 50);
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = 'rgba(255,255,255,0.75)';
-  c.fillText('iApp Solutions', PAD, 78);
+  c.fillText('iApp Solutions', PAD, 88);
 
-  let y = 114;
+  let y = 134;
 
   // Greeting
   c.fillStyle = '#1e293b';
   c.font = 'bold 17px system-ui, sans-serif';
-  c.fillText('Dear ' + d.name + ',', PAD, y); y += 24;
+  c.fillText('Dear ' + d.name + ',', PAD, y); y += 20;
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = '#64748b';
   c.fillText('Your electricity bill has been updated.', PAD, y); y += 18;
@@ -753,43 +878,6 @@ function renderBalanceSheet(data) {
       <div class="bs-stat-value">${summary.totalActiveQty}</div>
       <div class="bs-stat-hint">Avg ${summary.totalActiveQty * 20}–${summary.totalActiveQty * 25} units expected this month</div>
     </div>
-    <div class="bs-stat-card">
-      <div class="bs-stat-title">⚡ Units Projected vs Charged</div>
-      <div class="bs-stat-row">
-        <span class="bs-stat-chip bs-chip-blue">Projected: <strong>${stats.unitsProjected}</strong></span>
-        <span class="bs-stat-chip bs-chip-orange">Board Charged: <strong>${stats.unitsCharged}</strong></span>
-      </div>
-      <div class="bs-stat-diff ${stats.unitsDiff >= 0 ? 'diff-over' : 'diff-under'}">
-        ${stats.unitsDiff >= 0
-          ? `+${stats.unitsDiff} units over projection`
-          : `${stats.unitsDiff} units under projection`}
-      </div>
-    </div>
-    <div class="bs-stat-card">
-      <div class="bs-stat-title">💰 Expected Charge vs Board Bill</div>
-      <div class="bs-stat-row">
-        <span class="bs-stat-chip bs-chip-blue">Billed to Customers: <strong>₹${summary.totalCharged.toLocaleString()}</strong></span>
-        <span class="bs-stat-chip bs-chip-orange">Board Bill: <strong>₹${stats.projectedAmount.toLocaleString()}</strong></span>
-      </div>
-      <div class="bs-stat-diff ${summary.totalCharged >= stats.projectedAmount ? 'diff-over' : 'diff-under'}">
-        ${summary.totalCharged >= stats.projectedAmount
-          ? `Billed ₹${(summary.totalCharged - stats.projectedAmount).toLocaleString()} more than board cost`
-          : `Board cost ₹${(stats.projectedAmount - summary.totalCharged).toLocaleString()} more than billed`}
-      </div>
-    </div>
-    <div class="bs-stat-card">
-      <div class="bs-stat-title">🧾 Charged vs Collected</div>
-      <div class="bs-stat-row">
-        <span class="bs-stat-chip bs-chip-blue">Total Charged: <strong>₹${summary.totalCharged.toLocaleString()}</strong></span>
-        <span class="bs-stat-chip bs-chip-green">Collected: <strong>₹${summary.totalCollected.toLocaleString()}</strong></span>
-      </div>
-      <div class="bs-collection-bar">
-        <div class="bs-collection-fill" style="width:${stats.collectionRate}%"></div>
-      </div>
-      <div class="bs-stat-hint">Collection rate: <strong>${stats.collectionRate}%</strong>
-        &nbsp;·&nbsp; Pending: <strong style="color:var(--danger)">₹${summary.totalPending.toLocaleString()}</strong>
-      </div>
-    </div>
   `;
 
   // ─── Donut charts ────────────────────────────────────────────
@@ -810,7 +898,7 @@ function renderBalanceSheet(data) {
     </svg>`;
   }
 
-  function donutCard(title, v1, v2, color1, color2, label1, label2, fmt1, fmt2, centerText) {
+  function donutCard(title, v1, v2, color1, color2, label1, label2, fmt1, fmt2, centerText, note = '') {
     return `<div class="bs-donut-card">
       <div class="bs-donut-title">${title}</div>
       <div class="bs-donut-svg-wrap">${donutSVG(v1, v2, color1, color2, centerText)}</div>
@@ -824,6 +912,7 @@ function renderBalanceSheet(data) {
           <span>${label2}</span><strong>${fmt2}</strong>
         </div>
       </div>
+      ${note ? `<div class="bs-donut-note">${note}</div>` : ''}
     </div>`;
   }
 
@@ -832,27 +921,38 @@ function renderBalanceSheet(data) {
   const chargePct = summary.totalCharged
     ? Math.round((stats.projectedAmount / summary.totalCharged) * 100) + '%' : '—';
 
+  const unitsDiffNote = stats.unitsDiff >= 0
+    ? `<span class="diff-over">+${stats.unitsDiff} units over projection</span>`
+    : `<span class="diff-under">${Math.abs(stats.unitsDiff)} units under projection</span>`;
+
+  const chargeDiffNote = summary.totalCharged >= stats.projectedAmount
+    ? `<span class="diff-over">Billed ₹${(summary.totalCharged - stats.projectedAmount).toLocaleString()} more than board cost</span>`
+    : `<span class="diff-under">Board cost ₹${(stats.projectedAmount - summary.totalCharged).toLocaleString()} more than billed</span>`;
+
+  const collectionNote = `Collection rate: <strong>${stats.collectionRate}%</strong>
+    &nbsp;·&nbsp; Pending: <strong style="color:var(--danger)">₹${summary.totalPending.toLocaleString()}</strong>`;
+
   document.getElementById('bs-donut-charts').innerHTML =
     donutCard('⚡ Units Projected vs Charged',
       stats.unitsProjected, stats.unitsCharged,
       '#3b82f6', '#f97316',
       'Projected', 'Board Charged',
       stats.unitsProjected, stats.unitsCharged,
-      unitsPct) +
+      unitsPct, unitsDiffNote) +
     donutCard('💰 Expected Charge vs Board Bill',
       summary.totalCharged, stats.projectedAmount,
       '#3b82f6', '#f97316',
       'Billed to Customers', 'Board Bill',
       '₹' + summary.totalCharged.toLocaleString(),
       '₹' + stats.projectedAmount.toLocaleString(),
-      chargePct) +
+      chargePct, chargeDiffNote) +
     donutCard('🧾 Charged vs Collected',
       summary.totalCollected, summary.totalPending,
       '#22c55e', '#ef4444',
       'Collected', 'Pending',
       '₹' + summary.totalCollected.toLocaleString(),
       '₹' + summary.totalPending.toLocaleString(),
-      stats.collectionRate + '%');
+      stats.collectionRate + '%', collectionNote);
 
   // ─── Monthly charge detail ───────────────────────────────────
   if (hasCharge) {
@@ -900,6 +1000,39 @@ function renderBalanceSheet(data) {
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
     </tr>
   `).join('');
+}
+
+// ─── Balance Sheet Bills Export ───────────────────────────────
+
+function exportBSBillsCSV() {
+  const bills = lastBSData?.bills;
+  if (!bills?.length) { showToast('No bills to export.', 'warning'); return; }
+  const { month, year } = lastBSData;
+  const label = `${MONTH_NAMES[month]}-${year}`;
+  const headers = ['#', 'Customer', 'Mobile', 'Qty', 'Total (₹)', 'Collected (₹)', 'Pending (₹)', 'Status'];
+  const rows = bills.map((b, i) => [
+    i + 1, b.customerName, b.customerMobile || '',
+    b.quantity, b.total ?? 0, b.collectedAmount ?? 0, b.pendingAmount ?? 0, b.status,
+  ]);
+  downloadCSV(`bills-active-${label}.csv`, buildCSV(headers, rows));
+}
+
+function shareBSBillsWhatsApp() {
+  const bills = lastBSData?.bills;
+  if (!bills?.length) { showToast('No bills to share.', 'warning'); return; }
+  const { month, year, summary } = lastBSData;
+  const label = `${MONTH_NAMES[month]} ${year}`;
+  const lines = bills.map((b, i) =>
+    `${i + 1}. ${b.customerName} | Qty:${b.quantity} | Total:₹${(b.total ?? 0).toLocaleString()} | Collected:₹${(b.collectedAmount ?? 0).toLocaleString()} | Pending:₹${(b.pendingAmount ?? 0).toLocaleString()} | ${b.status}`
+  );
+  const msg = [
+    `📒 Balance Sheet — ${label}`,
+    ``,
+    ...lines,
+    ``,
+    `💰 Total: ₹${summary.totalCharged.toLocaleString()} | Collected: ₹${summary.totalCollected.toLocaleString()} | Pending: ₹${summary.totalPending.toLocaleString()}`,
+  ].join('\n');
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // ─── Monthly Charge Modal ─────────────────────────────────────
@@ -972,10 +1105,254 @@ async function doDelete(type, id) {
     await apiFetch(urls[type], { method: 'DELETE' });
     closeModal('modal-confirm-delete');
     showToast('Deleted successfully.', 'success');
-    if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); }
-    if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); }
+    if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); closeCustomerPage(); }
+    if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); refreshCustomerPage(); }
     if (type === 'monthly-charge') { loadBalanceSheet(); }
   } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BACKUP & RESTORE
+// ══════════════════════════════════════════════════════════════
+
+function backupAllData() {
+  const backup = {
+    version:    '1',
+    exportedAt: new Date().toISOString(),
+    appId:      'ebt',
+    customers:  JSON.parse(localStorage.getItem('ebt_customers') || '[]'),
+    bills:      JSON.parse(localStorage.getItem('ebt_bills')     || '[]'),
+    charges:    JSON.parse(localStorage.getItem('ebt_charges')   || '[]'),
+  };
+  const total = backup.customers.length + backup.bills.length + backup.charges.length;
+  if (!total) { showToast('No data to backup.', 'warning'); return; }
+  const date = new Date().toISOString().split('T')[0];
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `ebt-backup-${date}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(`Backup saved — ${backup.customers.length} customers, ${backup.bills.length} bills, ${backup.charges.length} charges.`, 'success');
+}
+
+function triggerRestoreBackup() {
+  const inp = document.getElementById('restore-file-input');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+
+async function handleRestoreFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!Array.isArray(data.customers) || !Array.isArray(data.bills)) {
+      showToast('Invalid backup file — missing customers or bills.', 'error'); return;
+    }
+    window._pendingRestore = data;
+    const d = document;
+    d.getElementById('restore-count').textContent =
+      `${data.customers.length} customers · ${data.bills.length} bills · ${(data.charges || []).length} monthly charges`;
+    d.getElementById('restore-exported-at').textContent =
+      data.exportedAt ? new Date(data.exportedAt).toLocaleString('en-IN') : 'Unknown';
+    openModal('modal-restore-confirm');
+  } catch (e) { showToast('Could not read backup file.', 'error'); }
+}
+
+function doRestoreBackup() {
+  const data = window._pendingRestore;
+  if (!data) return;
+  try {
+    localStorage.setItem('ebt_customers', JSON.stringify(data.customers || []));
+    localStorage.setItem('ebt_bills',     JSON.stringify(data.bills     || []));
+    localStorage.setItem('ebt_charges',   JSON.stringify(data.charges   || []));
+    window._pendingRestore = null;
+    closeModal('modal-restore-confirm');
+    showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.charges||[]).length} charges.`, 'success');
+    loadCustomers();
+    loadBills();
+    loadTrackerByCustomer();
+  } catch (e) { showToast('Restore failed: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CSV EXPORT / IMPORT
+// ══════════════════════════════════════════════════════════════
+
+function buildCSV(headers, rows) {
+  return [headers, ...rows]
+    .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+}
+
+function downloadCSV(filename, csv) {
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function parseCSVText(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    const cols = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cur += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === ',') { cols.push(cur.trim()); cur = ''; }
+        else cur += ch;
+      }
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+// ── Export ────────────────────────────────────────────────────
+
+function exportCustomersCSV() {
+  if (!allCustomers.length) { showToast('No customers to export.', 'warning'); return; }
+  const headers = ['#', 'Name', 'Mobile', 'Address', 'Registered On'];
+  const rows = allCustomers.map((c, i) => [i + 1, c.name, c.mobile, c.address || '', fmtDate(c.createdAt)]);
+  downloadCSV('customers.csv', buildCSV(headers, rows));
+}
+
+function exportBillsCSV() {
+  if (!allBills.length) { showToast('No bills to export.', 'warning'); return; }
+  const headers = ['#', 'Customer', 'Mobile', 'Start Date', 'Stop Date', 'Days', 'Qty', 'Per Day', 'Arrears', 'Total', 'Collected', 'Pending', 'Status'];
+  const rows = allBills.map((b, i) => [
+    i + 1, b.customerName || '', b.customerMobile || '',
+    b.startDate || '', b.stopDate || '', b.numberOfDays ?? '',
+    b.quantity, b.perDayCharge, b.arrears ?? 0,
+    b.total ?? 0, b.collectedAmount ?? 0, b.pendingAmount ?? 0, b.status,
+  ]);
+  downloadCSV('bills.csv', buildCSV(headers, rows));
+}
+
+async function exportMonthlyChargesCSV() {
+  try {
+    const charges = await apiFetch('/api/monthly-charges');
+    if (!charges.length) { showToast('No monthly charges to export.', 'warning'); return; }
+    const headers = ['#', 'Month', 'Year', 'Board Bill Amount', 'Bill Paid Date', 'Units Charged', 'Comments'];
+    const rows = charges.map((c, i) => [
+      i + 1, c.month, c.year, c.projectedAmount ?? 0,
+      c.billPaidDate || '', c.unitsCharged ?? '', c.comments || '',
+    ]);
+    downloadCSV('monthly-charges.csv', buildCSV(headers, rows));
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Import ────────────────────────────────────────────────────
+
+function importCSVFile(type) {
+  const input = document.getElementById('csv-import-' + type);
+  if (input) { input.value = ''; input.click(); }
+}
+
+async function handleCSVImport(event, type) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const rows = parseCSVText(text);
+  if (rows.length < 2) { showToast('CSV is empty or has no data rows.', 'warning'); return; }
+  const dataRows = rows.slice(1);
+  const hdr = rows[0].map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
+  let imported = 0, skipped = 0;
+
+  if (type === 'customers') {
+    const iName   = hdr.findIndex(h => h.includes('name'));
+    const iMobile = hdr.findIndex(h => h.includes('mobile'));
+    const iAddr   = hdr.findIndex(h => h.includes('address') || h === 'addr');
+    if (iName === -1 || iMobile === -1) { showToast('CSV must have Name and Mobile columns.', 'error'); return; }
+    const existing = await apiFetch('/api/customers');
+    const existingMobiles = new Set(existing.map(c => c.mobile));
+    for (const row of dataRows) {
+      const name = row[iName]?.trim(), mobile = row[iMobile]?.trim();
+      const addr = iAddr !== -1 ? (row[iAddr]?.trim() || '') : '';
+      if (!name || !mobile) { skipped++; continue; }
+      if (existingMobiles.has(mobile)) { skipped++; continue; }
+      try {
+        await apiFetch('/api/customers', { method: 'POST', body: JSON.stringify({ name, mobile, address: addr }) });
+        existingMobiles.add(mobile); imported++;
+      } catch { skipped++; }
+    }
+    showToast(`Imported ${imported} customer(s). Skipped ${skipped}.`, imported > 0 ? 'success' : 'warning');
+    if (imported > 0) loadCustomers();
+
+  } else if (type === 'bills') {
+    const iMobile    = hdr.findIndex(h => h.includes('mobile'));
+    const iStart     = hdr.findIndex(h => h.includes('start'));
+    const iStop      = hdr.findIndex(h => h.includes('stop'));
+    const iQty       = hdr.findIndex(h => h.includes('qty') || h.includes('quantity'));
+    const iPerDay    = hdr.findIndex(h => h.includes('perday'));
+    const iArrears   = hdr.findIndex(h => h.includes('arrear'));
+    const iCollected = hdr.findIndex(h => h.includes('collected'));
+    const iStatus    = hdr.findIndex(h => h === 'status');
+    if (iMobile === -1 || iStart === -1) { showToast('CSV must have Mobile and Start Date columns.', 'error'); return; }
+    const customers = await apiFetch('/api/customers');
+    for (const row of dataRows) {
+      const mobile    = row[iMobile]?.trim();
+      const startDate = row[iStart]?.trim();
+      if (!mobile || !startDate) { skipped++; continue; }
+      const customer = customers.find(c => c.mobile === mobile);
+      if (!customer) { skipped++; continue; }
+      const stopDate  = iStop      !== -1 ? (row[iStop]?.trim()        || null) : null;
+      const qty       = iQty       !== -1 ? (parseInt(row[iQty])       || 1)   : 1;
+      const perDay    = iPerDay    !== -1 ? (parseInt(row[iPerDay])    || 200)  : 200;
+      const arrears   = iArrears   !== -1 ? (parseFloat(row[iArrears]) || 0)   : 0;
+      const collected = iCollected !== -1 ? (parseFloat(row[iCollected]) || 0) : 0;
+      const status    = iStatus    !== -1 ? (row[iStatus]?.trim()      || 'active') : 'active';
+      try {
+        const bill = await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify({ customerId: customer.id, startDate, quantity: qty, perDayCharge: perDay, arrears }) });
+        if (stopDate || status === 'stopped' || collected > 0) {
+          const upd = {};
+          if (stopDate) upd.stopDate = stopDate;
+          else if (status === 'stopped') upd.stopDate = toDateStr(new Date());
+          if (collected > 0) upd.collectedAmount = collected;
+          await apiFetch(`/api/bills/${bill.id}`, { method: 'PUT', body: JSON.stringify(upd) });
+        }
+        imported++;
+      } catch { skipped++; }
+    }
+    showToast(`Imported ${imported} bill(s). Skipped ${skipped}.`, imported > 0 ? 'success' : 'warning');
+    if (imported > 0) { loadBills(); loadTrackerByCustomer(); }
+
+  } else if (type === 'monthly-charges') {
+    const iMonth    = hdr.findIndex(h => h === 'month' || h.startsWith('month'));
+    const iYear     = hdr.findIndex(h => h === 'year'  || h.startsWith('year'));
+    const iAmount   = hdr.findIndex(h => h.includes('amount') || h.includes('projected'));
+    const iPaidDate = hdr.findIndex(h => h.includes('paid'));
+    const iUnits    = hdr.findIndex(h => h.includes('units'));
+    const iComments = hdr.findIndex(h => h.includes('comment'));
+    if (iMonth === -1 || iYear === -1) { showToast('CSV must have Month and Year columns.', 'error'); return; }
+    const MONTH_MAP = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 };
+    for (const row of dataRows) {
+      const mRaw = row[iMonth]?.trim(), yRaw = row[iYear]?.trim();
+      if (!mRaw || !yRaw) { skipped++; continue; }
+      const monthNum = parseInt(mRaw) || MONTH_MAP[mRaw.toLowerCase()] || 0;
+      if (!monthNum || monthNum < 1 || monthNum > 12) { skipped++; continue; }
+      const amount   = iAmount   !== -1 ? (parseFloat(row[iAmount])  || 0)   : 0;
+      const paidDate = iPaidDate !== -1 ? (row[iPaidDate]?.trim()    || null) : null;
+      const units    = iUnits    !== -1 ? (parseFloat(row[iUnits])   || 0)   : 0;
+      const comments = iComments !== -1 ? (row[iComments]?.trim()    || '')  : '';
+      try {
+        await apiFetch('/api/monthly-charges', { method: 'POST', body: JSON.stringify({ month: monthNum, year: parseInt(yRaw), projectedAmount: amount, billPaidDate: paidDate, unitsCharged: units, comments }) });
+        imported++;
+      } catch { skipped++; }
+    }
+    showToast(`Imported ${imported} monthly charge(s). Skipped ${skipped}.`, imported > 0 ? 'success' : 'warning');
+    if (imported > 0) loadBalanceSheet();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
