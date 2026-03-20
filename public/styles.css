@@ -382,7 +382,7 @@ body {
   margin: 1rem 0;
 }
 .bs-donut-card {
-  background: var(--white);
+  background: #ffffff;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: 1.25rem 1rem 1rem;
