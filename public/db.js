@@ -104,10 +104,11 @@ const DB = (() => {
   //  BILLS
   // ══════════════════════════════════════════════════════════════
 
-  function getBills(status) {
+  function getBills(status, customerId) {
     const customers = readCustomers();
     let bills = read(KEYS.bills).map(b => enrichBill(b, customers));
-    if (status) bills = bills.filter(b => b.status === status);
+    if (status)     bills = bills.filter(b => b.status === status);
+    if (customerId) bills = bills.filter(b => b.customerId === customerId);
     return bills;
   }
 
@@ -290,7 +291,7 @@ const DB = (() => {
         break;
 
       case 'bills':
-        if (method === 'GET')    return getBills(params.status);
+        if (method === 'GET')    return getBills(params.status, params.customerId);
         if (method === 'POST')   return addBill(body);
         if (method === 'PUT')    return updateBill(id, body);
         if (method === 'DELETE') return deleteBill(id);
