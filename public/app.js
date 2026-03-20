@@ -6,6 +6,18 @@ let lastBSData     = null; // last loaded balance-sheet payload
 
 // ── Bootstrap ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Load version from version.txt and inject into About page
+  fetch('version.txt')
+    .then(r => r.text())
+    .then(v => {
+      const ver = v.trim();
+      const el1 = document.getElementById('about-version');
+      const el2 = document.getElementById('about-version-footer');
+      if (el1) el1.textContent = ver;
+      if (el2) el2.textContent = ver;
+    })
+    .catch(() => {});
+
   // Main tab navigation
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
