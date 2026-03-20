@@ -108,7 +108,8 @@ app.delete('/api/customers/:id', (req, res) => {
 app.get('/api/bills', (req, res) => {
   const customers = readCustomers();
   let bills = readJSON(BILLS_FILE).map(b => enrichBill(b, customers));
-  if (req.query.status) bills = bills.filter(b => b.status === req.query.status);
+  if (req.query.status)     bills = bills.filter(b => b.status === req.query.status);
+  if (req.query.customerId) bills = bills.filter(b => b.customerId === req.query.customerId);
   res.json(bills);
 });
 

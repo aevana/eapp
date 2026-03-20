@@ -706,3 +706,165 @@ body {
   .about-meta-grid  { grid-template-columns: 1fr 1fr; }
   .terms-box        { max-height: 340px; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Customer Cards & Detail Page
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Customer grid ── */
+.customer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: .5rem;
+}
+
+.cust-card {
+  background: #ffffff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  cursor: pointer;
+  transition: box-shadow .15s, transform .15s, border-color .15s;
+}
+.cust-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-light);
+  transform: translateY(-2px);
+}
+.cust-card-info { flex: 1; min-width: 0; }
+.cust-card-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cust-card-mobile {
+  font-size: .85rem;
+  color: var(--gray-500);
+  margin-top: 3px;
+}
+.cust-card-actions {
+  display: flex;
+  gap: .35rem;
+  flex-shrink: 0;
+}
+
+/* ── Customer detail header ── */
+.cdetail-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.cdetail-title {
+  flex: 1;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+.cdetail-header-actions { display: flex; gap: .4rem; }
+
+/* ── Customer info card ── */
+.cdetail-info-card {
+  background: #ffffff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.1rem 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .6rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.cdetail-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cdetail-info-row span {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--gray-500);
+}
+.cdetail-info-row strong {
+  font-size: .95rem;
+  color: var(--gray-800);
+}
+
+/* ── Bills section header ── */
+.cdetail-bills-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: .9rem;
+}
+.cbill-list { display: flex; flex-direction: column; gap: .85rem; }
+
+/* ── Bill card ── */
+.cbill-card {
+  background: #ffffff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.1rem;
+}
+.cbill-card.cbill-active  { border-left: 4px solid var(--success); }
+.cbill-card.cbill-stopped { border-left: 4px solid var(--gray-400); }
+
+.cbill-top {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+.cbill-period {
+  font-size: .85rem;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+.cbill-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: .5rem .75rem;
+  margin-bottom: .85rem;
+}
+.cbill-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cbill-stat span {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--gray-400);
+}
+.cbill-stat strong { font-size: .9rem; }
+.cbill-actions {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--gray-100);
+  padding-top: .7rem;
+  margin-top: .2rem;
+}
+
+@media (max-width: 600px) {
+  .customer-grid { grid-template-columns: 1fr; }
+  .cdetail-info-card { grid-template-columns: 1fr 1fr; }
+  .cbill-stats { grid-template-columns: repeat(3, 1fr); }
+}

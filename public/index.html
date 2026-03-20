@@ -38,30 +38,40 @@
 
     <!-- ══════════════ CUSTOMERS TAB ══════════════ -->
     <section id="tab-customers" class="tab-section active">
-      <div class="section-header">
-        <h2>Customer Management</h2>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-          <button class="btn btn-secondary" onclick="exportCustomersCSV()">📥 Export CSV</button>
-          <button class="btn btn-secondary" onclick="importCSVFile('customers')">📤 Import CSV</button>
-          <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+
+      <!-- ── Customer List View ── -->
+      <div id="customer-list-view">
+        <div class="section-header">
+          <h2>Customer Management</h2>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="exportCustomersCSV()">📥 Export CSV</button>
+            <button class="btn btn-secondary" onclick="importCSVFile('customers')">📤 Import CSV</button>
+            <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+          </div>
+          <input type="file" id="csv-import-customers" accept=".csv" style="display:none" onchange="handleCSVImport(event,'customers')" />
         </div>
-        <input type="file" id="csv-import-customers" accept=".csv" style="display:none" onchange="handleCSVImport(event,'customers')" />
+        <div class="search-bar">
+          <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
+        </div>
+        <div id="customer-grid" class="customer-grid">
+          <p class="empty-row">Loading…</p>
+        </div>
       </div>
-      <div class="search-bar">
-        <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
+
+      <!-- ── Customer Detail View ── -->
+      <div id="customer-detail-view" style="display:none;">
+        <div class="cdetail-header">
+          <button class="btn btn-secondary" onclick="closeCustomerPage()">← Back</button>
+          <h2 id="cdetail-title" class="cdetail-title"></h2>
+          <div class="cdetail-header-actions">
+            <button class="btn btn-icon btn-edit" id="cdetail-edit-btn">✏️ Edit</button>
+            <button class="btn btn-icon btn-del"  id="cdetail-del-btn">🗑 Delete</button>
+          </div>
+        </div>
+        <div id="cdetail-info"></div>
+        <div id="cdetail-bills"></div>
       </div>
-      <div class="table-wrap">
-        <table class="data-table" id="customer-table">
-          <thead>
-            <tr>
-              <th>#</th><th>Name</th><th>Mobile Number</th><th>Address</th><th>Registered On</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="customer-tbody">
-            <tr><td colspan="6" class="empty-row">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
+
     </section>
 
     <!-- ══════════════ BILLS TAB ══════════════ -->

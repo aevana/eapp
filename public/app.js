@@ -75,24 +75,134 @@ async function loadCustomers() {
 }
 
 function renderCustomers(list) {
-  const tbody = document.getElementById('customer-tbody');
+  const grid = document.getElementById('customer-grid');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No customers found.</td></tr>';
+    grid.innerHTML = '<p class="empty-row">No customers found.</p>';
     return;
   }
-  tbody.innerHTML = list.map((c, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td><strong>${esc(c.name)}</strong></td>
-      <td>${esc(c.mobile)}</td>
-      <td>${esc(c.address || '—')}</td>
-      <td>${fmtDate(c.createdAt)}</td>
-      <td class="actions-cell">
-        <button class="btn btn-icon btn-edit" onclick="openEditCustomer('${c.id}')">✏️ Edit</button>
-        <button class="btn btn-icon btn-del"  onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑 Delete</button>
-      </td>
-    </tr>
+  grid.innerHTML = list.map(c => `
+    <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+      <div class="cust-card-info">
+        <div class="cust-card-name">${esc(c.name)}</div>
+        <div class="cust-card-mobile">${esc(c.mobile)}</div>
+      </div>
+      <div class="cust-card-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
+        <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
+      </div>
+    </div>
   `).join('');
+}
+
+// ── Customer Detail Page ──────────────────────────────────────
+
+let currentCustomerId = null;
+
+async function openCustomerPage(id) {
+  const customer = allCustomers.find(c => c.id === id);
+  if (!customer) return;
+  currentCustomerId = id;
+  try {
+    const bills = await apiFetch(`/api/bills?customerId=${id}`);
+    document.getElementById('customer-list-view').style.display   = 'none';
+    document.getElementById('customer-detail-view').style.display = 'block';
+    document.getElementById('cdetail-title').textContent = customer.name;
+    document.getElementById('cdetail-edit-btn').onclick = () => openEditCustomer(id);
+    document.getElementById('cdetail-del-btn').onclick  = () => confirmDelete('customer', id, customer.name);
+    renderCustomerPage(customer, bills);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function closeCustomerPage() {
+  currentCustomerId = null;
+  document.getElementById('customer-detail-view').style.display = 'none';
+  document.getElementById('customer-list-view').style.display   = 'block';
+}
+
+async function refreshCustomerPage() {
+  if (currentCustomerId) await openCustomerPage(currentCustomerId);
+}
+
+function renderCustomerPage(customer, bills) {
+  document.getElementById('cdetail-info').innerHTML = `
+    <div class="cdetail-info-card">
+      <div class="cdetail-info-row"><span>Name</span><strong>${esc(customer.name)}</strong></div>
+      <div class="cdetail-info-row"><span>Mobile</span><strong>${esc(customer.mobile)}</strong></div>
+      <div class="cdetail-info-row"><span>Address</span><strong>${esc(customer.address || '—')}</strong></div>
+      <div class="cdetail-info-row"><span>Registered</span><strong>${fmtDate(customer.createdAt)}</strong></div>
+    </div>
+  `;
+
+  const billsHtml = !bills.length
+    ? '<p class="empty-row" style="padding:1rem 0;">No bills found for this customer.</p>'
+    : bills.map(b => `
+      <div class="cbill-card cbill-${b.status}">
+        <div class="cbill-top">
+          <span class="badge badge-${b.status}">${b.status}</span>
+          <span class="cbill-period">${fmtDate(b.startDate)} → ${b.stopDate ? fmtDate(b.stopDate) : 'Running ⚡'}</span>
+        </div>
+        <div class="cbill-stats">
+          <div class="cbill-stat"><span>Qty</span><strong>${b.quantity}</strong></div>
+          <div class="cbill-stat"><span>Rate/day</span><strong>₹${b.perDayCharge}</strong></div>
+          <div class="cbill-stat"><span>Days</span><strong>${b.numberOfDays ?? '—'}</strong></div>
+          <div class="cbill-stat"><span>Total</span><strong>₹${(b.total ?? 0).toLocaleString()}</strong></div>
+          <div class="cbill-stat"><span>Collected</span><strong style="color:var(--success)">₹${(b.collectedAmount ?? 0).toLocaleString()}</strong></div>
+          <div class="cbill-stat"><span>Pending</span><strong style="color:${b.pendingAmount > 0 ? 'var(--danger)' : 'inherit'}">₹${(b.pendingAmount ?? 0).toLocaleString()}</strong></div>
+        </div>
+        <div class="cbill-actions">
+          <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
+          ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
+          <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
+          <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill for ${esc(customer.name)}')">🗑 Delete</button>
+        </div>
+      </div>
+    `).join('');
+
+  document.getElementById('cdetail-bills').innerHTML = `
+    <div class="cdetail-bills-header">
+      <h3 class="bs-section-title" style="margin:0;">Bills (${bills.length})</h3>
+      <button class="btn btn-primary" onclick="openAddBillForCustomer('${customer.id}')">+ Add Bill</button>
+    </div>
+    <div class="cbill-list">${billsHtml}</div>
+  `;
+}
+
+function openAddBillForCustomer(customerId) {
+  populateCustomerDropdown('b-customer');
+  document.getElementById('b-customer').value = customerId;
+  setDateChip('today');
+  openModal('modal-add-bill');
+}
+
+// Wrapper that can work without trackerData being loaded
+function sendWhatsAppBillReminderFromDetail(customerId, billId) {
+  // try trackerData first, fall back to allBills + allCustomers
+  if (trackerData.find(c => c.id === customerId)) {
+    sendWhatsAppBillReminder(customerId, billId);
+    return;
+  }
+  const customer = allCustomers.find(c => c.id === customerId);
+  const bill     = allBills.find(b => b.id === billId);
+  if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
+  const start   = bill.startDate ? new Date(bill.startDate) : null;
+  const stop    = bill.stopDate  ? new Date(bill.stopDate)  : new Date();
+  const days    = start ? Math.max(1, Math.ceil((stop - start) / 86400000)) : 1;
+  const total   = bill.total || 0;
+  const paid    = bill.collectedAmount || 0;
+  const pending = bill.pendingAmount || 0;
+  const rate    = (days && bill.quantity) ? Math.round(total / (days * bill.quantity)) : 0;
+  const fmt     = d => d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  showBillImageModal(customer.mobile, {
+    name:       customer.name,
+    period:     fmt(start) + ' → ' + (bill.stopDate ? fmt(stop) : 'Running'),
+    days:       String(days),
+    sets:       String(bill.quantity),
+    rate:       '₹' + rate + '/day',
+    total:      '₹' + total.toLocaleString('en-IN'),
+    paid:       '₹' + paid.toLocaleString('en-IN'),
+    pending:    '₹' + pending.toLocaleString('en-IN'),
+    pendingAmt: pending,
+  });
 }
 
 function filterCustomers() {
@@ -241,6 +351,7 @@ async function submitAddBill(e) {
     showToast('Bill added!', 'success');
     loadBills();
     loadTrackerByCustomer();
+    refreshCustomerPage();
     promptWhatsApp(bill.customerMobile, [
       `Dear ${bill.customerName},`,
       ``,
@@ -307,6 +418,7 @@ async function submitUpdateBill(e) {
     showToast('Bill updated!', 'success');
     loadBills();
     loadTrackerByCustomer();
+    refreshCustomerPage();
     promptWhatsApp(bill.customerMobile, [
       `Dear ${bill.customerName},`,
       ``,
@@ -355,6 +467,7 @@ async function doStopBill(id) {
     showToast('Bill stopped!', 'warning');
     loadBills();
     loadTrackerByCustomer();
+    refreshCustomerPage();
     const text = document.getElementById('stop-confirm-msg').value;
     const clean = (bill.customerMobile || '').replace(/\D/g, '');
     if (clean) window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(text)}`, '_blank');
@@ -992,8 +1105,8 @@ async function doDelete(type, id) {
     await apiFetch(urls[type], { method: 'DELETE' });
     closeModal('modal-confirm-delete');
     showToast('Deleted successfully.', 'success');
-    if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); }
-    if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); }
+    if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); closeCustomerPage(); }
+    if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); refreshCustomerPage(); }
     if (type === 'monthly-charge') { loadBalanceSheet(); }
   } catch (e) { showToast(e.message, 'error'); }
 }
