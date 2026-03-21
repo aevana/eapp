@@ -777,6 +777,14 @@ body {
   border-radius: 12px;
   padding: 1.25rem;
 }
+.settings-section-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--gray-400); margin-bottom: .6rem;
+}
+.settings-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+}
+@media (max-width: 480px) { .settings-row { grid-template-columns: 1fr; } }
 .backup-info {
   background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
   padding: .85rem 1rem; margin-bottom: 1rem; font-size: .875rem;

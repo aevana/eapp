@@ -300,6 +300,8 @@
         <div class="about-section">
           <h3 class="about-section-title">⚙️ App Settings</h3>
           <div class="settings-card">
+
+            <p class="settings-section-label">Bill Image</p>
             <div class="form-group">
               <label>App Header</label>
               <input type="text" id="setting-app-header" placeholder="e.g. ⚡ Electricity Bill" maxlength="60" />
@@ -310,7 +312,29 @@
               <input type="text" id="setting-app-subheader" placeholder="e.g. iApp Solutions" maxlength="60" />
               <p class="hint">Shown below the title on the electricity bill image.</p>
             </div>
-            <div class="modal-actions" style="justify-content:flex-start;margin-top:1rem;">
+
+            <p class="settings-section-label" style="margin-top:1.25rem">Billing Defaults</p>
+            <div class="settings-row">
+              <div class="form-group">
+                <label>Default Per Day Charge (₹)</label>
+                <input type="number" id="setting-default-perday" min="1" placeholder="e.g. 200" />
+                <p class="hint">Pre-filled in every new bill.</p>
+              </div>
+              <div class="form-group">
+                <label>Default Quantity (Sets)</label>
+                <input type="number" id="setting-default-qty" min="1" placeholder="e.g. 1" />
+                <p class="hint">Pre-filled in every new bill.</p>
+              </div>
+            </div>
+
+            <p class="settings-section-label" style="margin-top:1.25rem">Operator Details</p>
+            <div class="form-group">
+              <label>Operator Mobile Number</label>
+              <input type="tel" id="setting-operator-mobile" placeholder="10-digit mobile" maxlength="10" />
+              <p class="hint">Shown on bill image footer and WhatsApp messages.</p>
+            </div>
+
+            <div class="modal-actions" style="justify-content:flex-start;margin-top:1.25rem;">
               <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
               <button class="btn btn-secondary" onclick="resetSettings()">↺ Reset to Default</button>
             </div>

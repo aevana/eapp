@@ -436,6 +436,9 @@ function filterBills() {
 function openAddBillModal() {
   populateCustomerDropdown('b-customer');
   setDateChip('today');
+  const s = getSettings();
+  document.getElementById('b-perday').value = s.defaultPerDay;
+  document.getElementById('b-qty').value    = s.defaultQty;
   openModal('modal-add-bill');
 }
 
@@ -630,7 +633,13 @@ async function loadTrackerByCustomer() {
 
 // ── Settings helpers ──────────────────────────────────────────
 const SETTINGS_KEY = 'ebt_settings';
-const DEFAULT_SETTINGS = { appHeader: '⚡ Electricity Bill', appSubHeader: 'iApp Solutions' };
+const DEFAULT_SETTINGS = {
+  appHeader:       '⚡ Electricity Bill',
+  appSubHeader:    'iApp Solutions',
+  defaultPerDay:   200,
+  defaultQty:      1,
+  operatorMobile:  '',
+};
 
 function getSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; }
@@ -639,14 +648,23 @@ function getSettings() {
 
 function loadSettings() {
   const s = getSettings();
-  document.getElementById('setting-app-header').value    = s.appHeader;
-  document.getElementById('setting-app-subheader').value = s.appSubHeader;
+  document.getElementById('setting-app-header').value       = s.appHeader;
+  document.getElementById('setting-app-subheader').value    = s.appSubHeader;
+  document.getElementById('setting-default-perday').value   = s.defaultPerDay;
+  document.getElementById('setting-default-qty').value      = s.defaultQty;
+  document.getElementById('setting-operator-mobile').value  = s.operatorMobile;
 }
 
 function saveSettings() {
+  const perday = parseInt(document.getElementById('setting-default-perday').value) || DEFAULT_SETTINGS.defaultPerDay;
+  const qty    = parseInt(document.getElementById('setting-default-qty').value)    || DEFAULT_SETTINGS.defaultQty;
+  const mobile = document.getElementById('setting-operator-mobile').value.trim();
   const s = {
-    appHeader:    document.getElementById('setting-app-header').value.trim()    || DEFAULT_SETTINGS.appHeader,
-    appSubHeader: document.getElementById('setting-app-subheader').value.trim() || DEFAULT_SETTINGS.appSubHeader,
+    appHeader:      document.getElementById('setting-app-header').value.trim()    || DEFAULT_SETTINGS.appHeader,
+    appSubHeader:   document.getElementById('setting-app-subheader').value.trim() || DEFAULT_SETTINGS.appSubHeader,
+    defaultPerDay:  perday,
+    defaultQty:     qty,
+    operatorMobile: mobile,
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
   showToast('Settings saved!', 'success');
@@ -780,7 +798,8 @@ function generateBillCanvas(d) {
   c.font = '12px system-ui, sans-serif';
   c.fillStyle = '#94a3b8';
   c.textAlign = 'center';
-  c.fillText('For any queries, please contact us. Thank you!', W / 2, y);
+  const footerContact = s.operatorMobile ? `Contact: ${s.operatorMobile}  |  Thank you!` : 'For any queries, please contact us. Thank you!';
+  c.fillText(footerContact, W / 2, y);
   c.textAlign = 'left';
 
   return cvs;
