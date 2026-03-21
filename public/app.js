@@ -202,11 +202,12 @@ function sendWhatsAppBillReminderFromDetail(customerId, billId) {
   const customer = allCustomers.find(c => c.id === customerId);
   const bill     = allBills.find(b => b.id === billId);
   if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
-  const fmt     = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const days    = bill.numberOfDays || 1;
-  const total   = bill.total || 0;
-  const paid    = bill.collectedAmount || 0;
-  const pending = bill.pendingAmount || 0;
+  const fmt      = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const days     = bill.numberOfDays || 1;
+  const total    = bill.total || 0;
+  const arrears  = bill.arrears || 0;
+  const paid     = bill.collectedAmount || 0;
+  const pending  = bill.pendingAmount || 0;
   showBillImageModal(customer.mobile, {
     name:       customer.name,
     period:     fmt(bill.startDate) + ' → ' + (bill.stopDate ? fmt(bill.stopDate) : 'Running'),
@@ -214,6 +215,8 @@ function sendWhatsAppBillReminderFromDetail(customerId, billId) {
     sets:       String(bill.quantity),
     rate:       '₹' + (bill.perDayCharge || 0) + '/day',
     total:      '₹' + total.toLocaleString('en-IN'),
+    arrears:    '₹' + arrears.toLocaleString('en-IN'),
+    arrearsAmt: arrears,
     paid:       '₹' + paid.toLocaleString('en-IN'),
     pending:    '₹' + pending.toLocaleString('en-IN'),
     pendingAmt: pending,
@@ -559,7 +562,8 @@ function numberToWords(n) {
 // Renders a bill card onto a canvas element and returns it.
 function generateBillCanvas(d) {
   const s = getSettings();
-  const W = 440, H = 530, PAD = 28, SCALE = 2;
+  const hasArrears = (d.arrearsAmt || 0) > 0;
+  const W = 440, H = hasArrears ? 562 : 530, PAD = 28, SCALE = 2;
   const cvs = document.createElement('canvas');
   cvs.width = W * SCALE; cvs.height = H * SCALE;
   cvs.style.width = W + 'px'; cvs.style.height = H + 'px';
@@ -631,9 +635,10 @@ function generateBillCanvas(d) {
 
   // Amount rows
   const amts = [
-    ['Total',   d.total,   '#334155'],
-    ['Paid',    d.paid,    '#16a34a'],
-    ['Pending', d.pending, d.pendingAmt > 0 ? '#dc2626' : '#16a34a'],
+    ['Total',                    d.total,   '#334155'],
+    ...(hasArrears ? [['Arrears', d.arrears, '#f59e0b']] : []),
+    ['Paid',                     d.paid,    '#16a34a'],
+    ['Pending',                  d.pending, d.pendingAmt > 0 ? '#dc2626' : '#16a34a'],
   ];
   for (const [label, val, clr] of amts) {
     c.font = (label === 'Pending' ? 'bold ' : '') + '15px system-ui, sans-serif';
@@ -725,9 +730,10 @@ function sendWhatsAppReminder(customerId) {
   if (!totalPending) { showToast('No pending amount for this customer.', 'warning'); return; }
 
   const mobile = customer.mobile.replace(/\D/g, '');
-  const lines  = activeBills.map((b, i) =>
-    `${i + 1}. ${fmtDate(b.startDate)} → ${b.stopDate ? fmtDate(b.stopDate) : 'Running'} | Qty:${b.quantity} | Pending: ₹${(b.pendingAmount || 0).toLocaleString()}`
-  );
+  const lines  = activeBills.map((b, i) => {
+    const arrearsNote = (b.arrears || 0) > 0 ? ` | Arrears: ₹${(b.arrears).toLocaleString()}` : '';
+    return `${i + 1}. ${fmtDate(b.startDate)} → ${b.stopDate ? fmtDate(b.stopDate) : 'Running'} | Qty:${b.quantity}${arrearsNote} | Pending: ₹${(b.pendingAmount || 0).toLocaleString()}`;
+  });
   const msg = [
     `Dear ${customer.name},`,
     ``,
@@ -750,11 +756,12 @@ function sendWhatsAppBillReminder(customerId, billId) {
   const bill = customer.bills.find(b => b.id === billId);
   if (!bill) return;
 
-  const fmt     = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const days    = bill.numberOfDays || 1;
-  const total   = bill.total || 0;
-  const paid    = bill.collectedAmount || 0;
-  const pending = bill.pendingAmount || 0;
+  const fmt      = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const days     = bill.numberOfDays || 1;
+  const total    = bill.total || 0;
+  const arrears  = bill.arrears || 0;
+  const paid     = bill.collectedAmount || 0;
+  const pending  = bill.pendingAmount || 0;
 
   showBillImageModal(customer.mobile, {
     name:       customer.name,
@@ -763,6 +770,8 @@ function sendWhatsAppBillReminder(customerId, billId) {
     sets:       String(bill.quantity || 1),
     rate:       '₹' + (bill.perDayCharge || 0) + '/day',
     total:      '₹' + total.toLocaleString('en-IN'),
+    arrears:    '₹' + arrears.toLocaleString('en-IN'),
+    arrearsAmt: arrears,
     paid:       '₹' + paid.toLocaleString('en-IN'),
     pending:    '₹' + pending.toLocaleString('en-IN'),
     pendingAmt: pending,
