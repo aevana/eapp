@@ -132,6 +132,7 @@ function closeCustomerPage() {
   currentCustomerId = null;
   document.getElementById('customer-detail-view').style.display = 'none';
   document.getElementById('customer-list-view').style.display   = 'block';
+  renderCustomers(trackerData); // re-render with latest data after any bill edits
 }
 
 async function refreshCustomerPage() {
