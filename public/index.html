@@ -30,6 +30,7 @@
     <button class="tab-btn" data-tab="bills">📄 Bills</button>
     <button class="tab-btn" data-tab="tracker">📊 Tracker</button>
     <button class="tab-btn" data-tab="backup">💾 Backup</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
     <button class="tab-btn" data-tab="about">ℹ️ About</button>
   </nav>
 
@@ -249,6 +250,31 @@
       </div>
     </section>
 
+    <!-- ══════════════ SETTINGS TAB ══════════════ -->
+    <section id="tab-settings" class="tab-section">
+      <div class="about-page">
+        <div class="about-section">
+          <h3 class="about-section-title">⚙️ App Settings</h3>
+          <div class="settings-card">
+            <div class="form-group">
+              <label>App Header</label>
+              <input type="text" id="setting-app-header" placeholder="e.g. ⚡ Electricity Bill" maxlength="60" />
+              <p class="hint">Shown as the title on the electricity bill image.</p>
+            </div>
+            <div class="form-group">
+              <label>Sub Header</label>
+              <input type="text" id="setting-app-subheader" placeholder="e.g. iApp Solutions" maxlength="60" />
+              <p class="hint">Shown below the title on the electricity bill image.</p>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-start;margin-top:1rem;">
+              <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+              <button class="btn btn-secondary" onclick="resetSettings()">↺ Reset to Default</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ══════════════ ABOUT TAB ══════════════ -->
     <section id="tab-about" class="tab-section">
       <div class="about-page">
@@ -260,7 +286,7 @@
           <div class="about-meta-grid">
             <div class="about-meta-item">
               <span class="about-meta-label">Author</span>
-              <span class="about-meta-value">Anji Evana</span>
+              <span class="about-meta-value">Karthikeya E</span>
             </div>
             <div class="about-meta-item">
               <span class="about-meta-label">Company</span>
@@ -326,7 +352,7 @@
           <h3 class="about-section-title">📧 Contact &amp; Support</h3>
           <div class="about-contact-box">
             <p><strong>App:</strong> Electricity Bills Tracker v<span id="app-version-contact">1.0.0</span></p>
-            <p><strong>Author:</strong> Anji Evana</p>
+            <p><strong>Author:</strong> Karthikeya E</p>
             <p><strong>Company:</strong> iApp Solutions Pvt. Ltd.</p>
             <p><strong>Platform:</strong> Web Browser &amp; Android (via Capacitor)</p>
             <p class="about-copyright">© 2026 iApp Solutions Pvt. Ltd. All Rights Reserved.</p>
@@ -430,6 +456,16 @@
             <input type="number" id="b-perday" value="200" min="1" />
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Arrears (₹)</label>
+            <input type="number" id="b-arrears" value="0" min="0" placeholder="Previous pending amount" />
+          </div>
+          <div class="form-group">
+            <label>Comments</label>
+            <input type="text" id="b-comments" placeholder="Optional notes…" />
+          </div>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-bill')">Cancel</button>
           <button type="submit" class="btn btn-primary">Add Bill</button>
@@ -478,6 +514,14 @@
             <label>Collected Amount (₹)</label>
             <input type="number" id="ub-collected" min="0" value="0" oninput="updateBillPreview()" />
           </div>
+          <div class="form-group">
+            <label>Arrears (₹)</label>
+            <input type="number" id="ub-arrears" min="0" value="0" oninput="updateBillPreview()" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Comments</label>
+          <input type="text" id="ub-comments" placeholder="Optional notes…" />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-update-bill')">Cancel</button>

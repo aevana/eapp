@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'tracker') loadTrackerByCustomer();
+      if (btn.dataset.tab === 'settings') loadSettings();
     });
   });
 
@@ -153,8 +154,8 @@ function renderCustomerPage(customer, bills) {
         <div class="cbill-actions">
           <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
           ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
-          <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
           <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill for ${esc(customer.name)}')">🗑 Delete</button>
+          <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
         </div>
       </div>
     `).join('');
@@ -344,6 +345,8 @@ async function submitAddBill(e) {
     startDate:    document.getElementById('b-startdate').value,
     quantity:     parseInt(document.getElementById('b-qty').value),
     perDayCharge: parseInt(document.getElementById('b-perday').value),
+    arrears:      parseFloat(document.getElementById('b-arrears').value) || 0,
+    comments:     document.getElementById('b-comments').value.trim(),
   };
   try {
     const bill = await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify(body) });
@@ -382,6 +385,8 @@ function openUpdateBill(id) {
   document.getElementById('ub-qty').value        = b.quantity;
   document.getElementById('ub-perday').value     = b.perDayCharge;
   document.getElementById('ub-collected').value  = b.collectedAmount || 0;
+  document.getElementById('ub-arrears').value    = b.arrears || 0;
+  document.getElementById('ub-comments').value   = b.comments || '';
   openModal('modal-update-bill');
   updateBillPreview();
 }
@@ -392,12 +397,13 @@ function updateBillPreview() {
   const qty       = parseInt(document.getElementById('ub-qty').value)      || 0;
   const perDay    = parseInt(document.getElementById('ub-perday').value)    || 0;
   const collected = parseInt(document.getElementById('ub-collected').value) || 0;
+  const arrears   = parseFloat(document.getElementById('ub-arrears').value) || 0;
   if (!start) return;
   const s    = new Date(start);
   const e2   = stop ? new Date(stop) : new Date();
   const days = Math.max(0, Math.ceil((e2 - s) / 86400000));
   const total   = days * qty * perDay;
-  const pending = Math.max(0, total - collected);
+  const pending = Math.max(0, total + arrears - collected);
   document.getElementById('prev-days').textContent    = days;
   document.getElementById('prev-total').textContent   = `₹${total.toLocaleString()}`;
   document.getElementById('prev-pending').textContent = `₹${pending.toLocaleString()}`;
@@ -412,6 +418,8 @@ async function submitUpdateBill(e) {
     quantity:        parseInt(document.getElementById('ub-qty').value),
     perDayCharge:    parseInt(document.getElementById('ub-perday').value),
     collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
+    arrears:         parseFloat(document.getElementById('ub-arrears').value) || 0,
+    comments:        document.getElementById('ub-comments').value.trim(),
   };
   try {
     const bill = await apiFetch(`/api/bills/${id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -578,10 +586,58 @@ function toggleCustomerCard(id) {
   document.getElementById(`tcard-${id}`)?.classList.toggle('expanded');
 }
 
+// ── Settings helpers ──────────────────────────────────────────
+const SETTINGS_KEY = 'ebt_settings';
+const DEFAULT_SETTINGS = { appHeader: '⚡ Electricity Bill', appSubHeader: 'iApp Solutions' };
+
+function getSettings() {
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; }
+  catch { return { ...DEFAULT_SETTINGS }; }
+}
+
+function loadSettings() {
+  const s = getSettings();
+  document.getElementById('setting-app-header').value    = s.appHeader;
+  document.getElementById('setting-app-subheader').value = s.appSubHeader;
+}
+
+function saveSettings() {
+  const s = {
+    appHeader:    document.getElementById('setting-app-header').value.trim()    || DEFAULT_SETTINGS.appHeader,
+    appSubHeader: document.getElementById('setting-app-subheader').value.trim() || DEFAULT_SETTINGS.appSubHeader,
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  showToast('Settings saved!', 'success');
+}
+
+function resetSettings() {
+  localStorage.removeItem(SETTINGS_KEY);
+  loadSettings();
+  showToast('Settings reset to default.', 'success');
+}
+
+// ── Number to words (Indian rupees) ──────────────────────────
+function numberToWords(n) {
+  n = Math.round(n);
+  if (n === 0) return 'Zero Rupees';
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+                 'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen',
+                 'Seventeen','Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function two(x) { return x < 20 ? ones[x] : tens[Math.floor(x/10)] + (x%10 ? ' '+ones[x%10] : ''); }
+  let res = '';
+  if (n >= 100000) { res += two(Math.floor(n/100000)) + ' Lakh ';   n %= 100000; }
+  if (n >= 1000)   { res += two(Math.floor(n/1000))   + ' Thousand '; n %= 1000; }
+  if (n >= 100)    { res += ones[Math.floor(n/100)]    + ' Hundred '; n %= 100; }
+  if (n > 0)       res += two(n);
+  return res.trim() + ' Rupees Only';
+}
+
 // ── Bill Image Generation ──────────────────────────────────────
 // Renders a bill card onto a canvas element and returns it.
 function generateBillCanvas(d) {
-  const W = 440, H = 490, PAD = 28, SCALE = 2;
+  const s = getSettings();
+  const W = 440, H = 530, PAD = 28, SCALE = 2;
   const cvs = document.createElement('canvas');
   cvs.width = W * SCALE; cvs.height = H * SCALE;
   cvs.style.width = W + 'px'; cvs.style.height = H + 'px';
@@ -605,18 +661,26 @@ function generateBillCanvas(d) {
   // Card background
   rr(0, 0, W, H, 20); c.fillStyle = '#ffffff'; c.fill();
 
-  // Green header (top corners rounded, bottom square via filled rect)
+  // Green header
   c.fillStyle = '#16a34a';
   rr(0, 0, W, 96, 20); c.fill();
   c.fillRect(0, 76, W, 20);
 
-  // Header text
+  // Header text — from settings
   c.fillStyle = '#ffffff';
-  c.font = 'bold 24px system-ui, -apple-system, sans-serif';
-  c.fillText('\u26A1 Electricity Bill', PAD, 50);
+  c.font = 'bold 22px system-ui, -apple-system, sans-serif';
+  c.fillText(s.appHeader, PAD, 48);
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = 'rgba(255,255,255,0.75)';
-  c.fillText('iApp Solutions', PAD, 88);
+  c.fillText(s.appSubHeader, PAD, 88);
+
+  // Today's date — top right of header
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  c.font = '11px system-ui, sans-serif';
+  c.fillStyle = 'rgba(255,255,255,0.85)';
+  c.textAlign = 'right';
+  c.fillText(todayStr, W - PAD, 48);
+  c.textAlign = 'left';
 
   let y = 134;
 
@@ -657,6 +721,14 @@ function generateBillCanvas(d) {
     c.fillText(val, W - PAD, y);
     c.textAlign = 'left'; y += 30;
   }
+
+  // Written words for pending amount
+  const pendingWords = numberToWords(d.pendingAmt || 0);
+  c.font = 'italic 11px system-ui, sans-serif';
+  c.fillStyle = d.pendingAmt > 0 ? '#dc2626' : '#16a34a';
+  c.textAlign = 'right';
+  c.fillText('(' + pendingWords + ')', W - PAD, y - 14);
+  c.textAlign = 'left';
 
   divider(y + 2); y += 18;
 

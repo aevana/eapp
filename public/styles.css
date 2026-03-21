@@ -527,7 +527,7 @@ body {
   .data-table td { padding: .7rem .7rem;  font-size: .875rem; }
 
   /* Action buttons */
-  .actions-cell { flex-wrap: wrap; gap: .3rem; }
+  .actions-cell { flex-wrap: nowrap; gap: .3rem; }
   .btn-icon { padding: .45rem .65rem; font-size: .8rem; }
 
   /* Forms */
@@ -674,6 +674,12 @@ body {
 
 /* Backup & Restore section */
 .backup-section {
+  padding: 1.25rem;
+}
+.settings-card {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
   padding: 1.25rem;
 }
 .backup-info {
@@ -860,6 +866,7 @@ body {
   display: flex;
   gap: .4rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
   border-top: 1px solid var(--gray-100);
   padding-top: .7rem;
   margin-top: .2rem;
