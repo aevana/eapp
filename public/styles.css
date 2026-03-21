@@ -864,7 +864,9 @@ body {
   padding-top: .7rem;
   margin-top: .2rem;
 }
-
+#confirm-delete-msg{
+  padding: 1rem;
+}
 @media (max-width: 600px) {
   .customer-grid { grid-template-columns: 1fr; }
   .cdetail-info-card { grid-template-columns: 1fr 1fr; }
