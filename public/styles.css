@@ -317,6 +317,9 @@ body {
 .bs-filter-block {
   display: flex; flex-direction: column; gap: .65rem;
 }
+.bs-filter-block > .btn {
+  align-self: center;
+}
 .bs-year-row {
   display: flex; align-items: center; gap: .6rem;
 }
