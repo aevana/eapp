@@ -207,12 +207,18 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>#</th><th>Customer</th><th>Mobile</th><th>Qty</th>
-                  <th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
+                  <th>#</th><th>Customer</th><th>Mobile</th>
+                  <th class="th-sort" onclick="sortBSBills('startDate')"    id="bs-th-startDate">Start Date</th>
+                  <th class="th-sort" onclick="sortBSBills('stopDate')"     id="bs-th-stopDate">Stop Date</th>
+                  <th class="th-sort" onclick="sortBSBills('numberOfDays')" id="bs-th-numberOfDays">Days</th>
+                  <th>Qty</th><th>Per Day (₹)</th>
+                  <th class="th-sort" onclick="sortBSBills('total')"        id="bs-th-total">Total (₹)</th>
+                  <th>Arrears (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th>
+                  <th class="th-sort" onclick="sortBSBills('status')"       id="bs-th-status">Status</th>
                 </tr>
               </thead>
               <tbody id="bs-bills-tbody">
-                <tr><td colspan="8" class="empty-row">Select month/year and click View.</td></tr>
+                <tr><td colspan="13" class="empty-row">Select month/year and click View.</td></tr>
               </tbody>
             </table>
           </div>

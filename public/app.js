@@ -1038,20 +1038,80 @@ function renderBalanceSheet(data) {
   }
 
   // ─── Bills table ─────────────────────────────────────────────
-  const billsSection = document.getElementById('bs-bills-section');
-  billsSection.style.display = 'block';
+  document.getElementById('bs-bills-section').style.display = 'block';
+  lastBSSort = { col: null, asc: true };
+  renderBSBills(bills);
+}
+
+let lastBSSort = { col: null, asc: true };
+
+function sortBSBills(col) {
+  if (lastBSSort.col === col) {
+    lastBSSort.asc = !lastBSSort.asc;
+  } else {
+    lastBSSort = { col, asc: true };
+  }
+  renderBSBills(lastBSData?.bills || []);
+}
+
+function renderBSBills(bills) {
   const tbody = document.getElementById('bs-bills-tbody');
   if (!bills.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No bills active in this month.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty-row">No bills active in this month.</td></tr>';
     return;
   }
-  tbody.innerHTML = bills.map((b, i) => `
+
+  // Update sort header indicators
+  const bsColLabels = {
+    startDate: 'Start Date', stopDate: 'Stop Date',
+    numberOfDays: 'Days', total: 'Total (₹)', status: 'Status',
+  };
+  Object.entries(bsColLabels).forEach(([c, label]) => {
+    const th = document.getElementById('bs-th-' + c);
+    if (!th) return;
+    if (lastBSSort.col === c) {
+      th.innerHTML = `${label} <span class="sort-icon">${lastBSSort.asc ? '▲' : '▼'}</span>`;
+      th.classList.add('th-sort-active');
+    } else {
+      th.innerHTML = label;
+      th.classList.remove('th-sort-active');
+    }
+  });
+
+  // Sort
+  const sorted = [...bills].sort((a, b) => {
+    const col = lastBSSort.col;
+    if (!col) return 0;
+    let av = a[col], bv = b[col];
+    if (col === 'numberOfDays' || col === 'total') {
+      av = av ?? 0; bv = bv ?? 0;
+    } else if (col === 'startDate' || col === 'stopDate') {
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      av = new Date(av).getTime();
+      bv = new Date(bv).getTime();
+    } else {
+      av = (av || '').toString().toLowerCase();
+      bv = (bv || '').toString().toLowerCase();
+    }
+    if (av < bv) return lastBSSort.asc ? -1 : 1;
+    if (av > bv) return lastBSSort.asc ?  1 : -1;
+    return 0;
+  });
+
+  tbody.innerHTML = sorted.map((b, i) => `
     <tr>
       <td>${i + 1}</td>
       <td><strong>${esc(b.customerName)}</strong></td>
       <td>${esc(b.customerMobile || '')}</td>
+      <td>${fmtDate(b.startDate)}</td>
+      <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
+      <td>${b.numberOfDays ?? '—'}</td>
       <td>${b.quantity}</td>
+      <td>₹${b.perDayCharge}</td>
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
+      <td>${(b.arrears ?? 0) > 0 ? `<span style="color:#f59e0b;font-weight:600">₹${(b.arrears).toLocaleString()}</span>` : '—'}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
       <td style="color:var(--danger);font-weight:600;">₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
@@ -1066,10 +1126,12 @@ function exportBSBillsCSV() {
   if (!bills?.length) { showToast('No bills to export.', 'warning'); return; }
   const { month, year } = lastBSData;
   const label = `${MONTH_NAMES[month]}-${year}`;
-  const headers = ['#', 'Customer', 'Mobile', 'Qty', 'Total (₹)', 'Collected (₹)', 'Pending (₹)', 'Status'];
+  const headers = ['#', 'Customer', 'Mobile', 'Start Date', 'Stop Date', 'Days', 'Qty', 'Per Day (₹)', 'Total (₹)', 'Arrears (₹)', 'Collected (₹)', 'Pending (₹)', 'Status'];
   const rows = bills.map((b, i) => [
     i + 1, b.customerName, b.customerMobile || '',
-    b.quantity, b.total ?? 0, b.collectedAmount ?? 0, b.pendingAmount ?? 0, b.status,
+    b.startDate || '', b.stopDate || '', b.numberOfDays ?? '',
+    b.quantity, b.perDayCharge,
+    b.total ?? 0, b.arrears ?? 0, b.collectedAmount ?? 0, b.pendingAmount ?? 0, b.status,
   ]);
   downloadCSV(`bills-active-${label}.csv`, buildCSV(headers, rows));
 }
@@ -1079,9 +1141,10 @@ function shareBSBillsWhatsApp() {
   if (!bills?.length) { showToast('No bills to share.', 'warning'); return; }
   const { month, year, summary } = lastBSData;
   const label = `${MONTH_NAMES[month]} ${year}`;
-  const lines = bills.map((b, i) =>
-    `${i + 1}. ${b.customerName} | Qty:${b.quantity} | Total:₹${(b.total ?? 0).toLocaleString()} | Collected:₹${(b.collectedAmount ?? 0).toLocaleString()} | Pending:₹${(b.pendingAmount ?? 0).toLocaleString()} | ${b.status}`
-  );
+  const lines = bills.map((b, i) => {
+    const arrearsNote = (b.arrears ?? 0) > 0 ? ` | Arrears:₹${b.arrears.toLocaleString()}` : '';
+    return `${i + 1}. ${b.customerName} | ${fmtDate(b.startDate)}→${b.stopDate ? fmtDate(b.stopDate) : 'Running'} | Days:${b.numberOfDays ?? '—'} | Qty:${b.quantity}${arrearsNote} | Total:₹${(b.total ?? 0).toLocaleString()} | Collected:₹${(b.collectedAmount ?? 0).toLocaleString()} | Pending:₹${(b.pendingAmount ?? 0).toLocaleString()} | ${b.status}`;
+  });
   const msg = [
     `📒 Balance Sheet — ${label}`,
     ``,
