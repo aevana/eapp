@@ -95,12 +95,7 @@
       <div id="customer-list-view">
         <div class="section-header">
           <h2>Customer Management</h2>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-            <button class="btn btn-secondary" onclick="exportCustomersCSV()">📥 Export CSV</button>
-            <button class="btn btn-secondary" onclick="importCSVFile('customers')">📤 Import CSV</button>
-            <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
-          </div>
-          <input type="file" id="csv-import-customers" accept=".csv" style="display:none" onchange="handleCSVImport(event,'customers')" />
+          <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
         </div>
         <div class="search-bar">
           <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
@@ -610,6 +605,7 @@
         <div class="calc-preview" id="ub-calc-preview">
           <span>Days: <strong id="prev-days">–</strong></span>
           <span>Total: <strong id="prev-total">₹–</strong></span>
+          <span id="prev-arrears-wrap" style="display:none">Arrears: <strong id="prev-arrears" style="color:#f59e0b">₹–</strong></span>
           <span>Pending: <strong id="prev-pending">₹–</strong></span>
         </div>
         <div class="form-row">

@@ -279,15 +279,17 @@ function renderCustomers(list) {
     const hasActive      = activeBills.length > 0;
     return `
       <div class="cust-card" onclick="openCustomerPage('${c.id}')">
-        <div class="cust-card-num">${idx + 1}</div>
-        <div class="cust-card-info">
-          <div class="cust-card-name">${esc(c.name)}</div>
-          <div class="cust-card-mobile">${esc(c.mobile)}</div>
-          <div class="cust-card-stats">
-            <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
-            <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
-            <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
-            <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+        <div class="cust-card-top">
+          <div class="cust-card-num">${idx + 1}</div>
+          <div class="cust-card-info">
+            <div class="cust-card-name">${esc(c.name)}</div>
+            <div class="cust-card-mobile">${esc(c.mobile)}</div>
+            <div class="cust-card-stats">
+              <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
+              <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
+              <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
+              <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+            </div>
           </div>
         </div>
         <div class="cust-card-actions" onclick="event.stopPropagation()">
@@ -635,6 +637,13 @@ function updateBillPreview() {
   const pending = Math.max(0, total + arrears - collected);
   document.getElementById('prev-days').textContent    = days;
   document.getElementById('prev-total').textContent   = `₹${total.toLocaleString()}`;
+  const arrearsWrap = document.getElementById('prev-arrears-wrap');
+  if (arrears > 0) {
+    document.getElementById('prev-arrears').textContent = `₹${arrears.toLocaleString()}`;
+    arrearsWrap.style.display = '';
+  } else {
+    arrearsWrap.style.display = 'none';
+  }
   document.getElementById('prev-pending').textContent = `₹${pending.toLocaleString()}`;
 }
 
@@ -676,6 +685,7 @@ async function submitUpdateBill(e) {
       `Sets    : ${bill.quantity}`,
       `Rate    : ₹${bill.perDayCharge}/day`,
       `Total   : ₹${(bill.total || 0).toLocaleString()}`,
+      ...((bill.arrears || 0) > 0 ? [`Arrears : ₹${(bill.arrears).toLocaleString()}`] : []),
       `Paid    : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
       `Pending : ₹${(bill.pendingAmount || 0).toLocaleString()}`,
       ``,
@@ -919,25 +929,33 @@ function showBillImageModal(mobile, data) {
   const clean = (mobile || '').replace(/\D/g, '');
 
   document.getElementById('bill-img-download').onclick = () => {
-    const a = document.createElement('a');
-    a.download = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-    a.href = cvs.toDataURL('image/png');
-    a.click();
+    cvs.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }, 'image/png');
   };
 
   document.getElementById('bill-img-share').onclick = () => {
     cvs.toBlob(async blob => {
-      const file = new File([blob], 'electricity-bill.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; } catch (e) {}
+      const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
+      const file = new File([blob], filename, { type: 'image/png' });
+      // Try Web Share API with file (works on Android WebView / iOS)
+      if (navigator.share) {
+        try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
+        catch (e) { if (e.name === 'AbortError') return; }
       }
-      // Fallback: download image then open WhatsApp
+      // Desktop / unsupported fallback: download then open WhatsApp
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.download = 'electricity-bill.png';
-      a.href = cvs.toDataURL('image/png');
-      a.click();
-      if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
-    });
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 800);
+    }, 'image/png');
   };
 
   openModal('modal-bill-image');
@@ -1583,10 +1601,17 @@ function buildCSV(headers, rows) {
     .join('\r\n');
 }
 
-function downloadCSV(filename, csv) {
+async function downloadCSV(filename, csv) {
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
+  const file = new File([blob], filename, { type: 'text/csv;charset=utf-8;' });
+  // On Android WebView anchor-click download is blocked; use Web Share API
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: filename }); return; }
+    catch (err) { if (err.name !== 'AbortError') showToast('Share cancelled.', 'warning'); return; }
+  }
+  // Desktop / PWA fallback
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
