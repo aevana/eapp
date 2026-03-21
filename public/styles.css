@@ -771,6 +771,130 @@ body {
 .backup-section {
   padding: 1.25rem;
 }
+/* ── Home tab ────────────────────────────────────────────────── */
+.home-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .6rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 480px) { .home-stats-row { grid-template-columns: repeat(2, 1fr); } }
+
+.home-stat {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: .75rem .6rem;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.home-stat-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.2;
+}
+.home-stat-label {
+  font-size: .65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gray-500);
+  margin-top: .2rem;
+}
+.home-stat-danger .home-stat-value  { color: var(--danger); }
+.home-stat-success .home-stat-value { color: var(--success); }
+
+.home-section-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--gray-500);
+  margin-bottom: .75rem;
+}
+.home-section-badge {
+  background: var(--primary);
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: .05rem .45rem;
+}
+
+.home-run-card {
+  display: flex;
+  align-items: flex-start;
+  gap: .9rem;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-left: 4px solid #16a34a;
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  margin-bottom: .65rem;
+  cursor: pointer;
+  transition: box-shadow .15s, transform .15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.home-run-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-1px); }
+
+.home-run-avatar {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+  color: #fff;
+  font-size: .85rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.home-run-body { flex: 1; min-width: 0; }
+.home-run-top {
+  display: flex; align-items: baseline; gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: .3rem;
+}
+.home-run-name   { font-size: .97rem; font-weight: 700; color: var(--gray-900); }
+.home-run-mobile { font-size: .78rem; color: var(--gray-500); }
+.home-run-meta {
+  display: flex; flex-wrap: wrap; gap: .35rem .75rem;
+  font-size: .75rem;
+  color: var(--gray-600);
+  margin-bottom: .5rem;
+}
+.home-run-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .4rem;
+}
+.home-run-amt-block {
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding: .35rem .5rem;
+  text-align: center;
+}
+.home-run-amt-label {
+  display: block;
+  font-size: .6rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gray-500);
+  font-weight: 600;
+}
+.home-run-amt-val {
+  display: block;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-top: .1rem;
+}
+.home-run-amt-pending  .home-run-amt-val { color: var(--danger); }
+.home-run-amt-collected .home-run-amt-val { color: var(--success); }
+
+/* ── Settings card ────────────────────────────────────────────── */
 .settings-card {
   background: var(--gray-50);
   border: 1px solid var(--gray-200);

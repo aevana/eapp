@@ -78,8 +78,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'settings') loadSettings();
+      if (btn.dataset.tab === 'home')     loadHome();
     });
   });
+
+  // Load home on startup
+  loadHome();
 
   // Default month/year selectors to current month
   const now = new Date();
@@ -153,6 +157,100 @@ function switchTracker(type) {
   document.querySelectorAll('.tracker-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`.tracker-tab[data-tracker="${type}"]`).classList.add('active');
   document.getElementById(`tracker-${type}`).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HOME
+// ══════════════════════════════════════════════════════════════
+
+async function loadHome() {
+  try {
+    const data = await apiFetch('/api/tracker/customers');   // same as loadCustomers uses
+
+    // ── compute totals
+    let totalPending = 0, totalCollected = 0, runningCount = 0;
+    const runningCards = [];
+
+    data.forEach(cust => {
+      const bills = cust.bills || [];
+      bills.forEach(b => {
+        totalPending   += b.pendingAmount   || 0;
+        totalCollected += b.collectedAmount || 0;
+        if (b.status === 'active') {
+          runningCount++;
+          runningCards.push({ cust, bill: b });
+        }
+      });
+    });
+
+    // ── stat row
+    document.getElementById('hs-val-customers').textContent  = data.length;
+    document.getElementById('hs-val-running').textContent    = runningCount;
+    document.getElementById('hs-val-pending').textContent    = '₹' + totalPending.toLocaleString();
+    document.getElementById('hs-val-collected').textContent  = '₹' + totalCollected.toLocaleString();
+    document.getElementById('hs-running-badge').textContent  = runningCount;
+
+    // ── running set cards
+    const list = document.getElementById('home-running-list');
+    if (!runningCards.length) {
+      list.innerHTML = '<p class="empty-row">No sets are currently running.</p>';
+      return;
+    }
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    list.innerHTML = runningCards.map(({ cust, bill }) => {
+      const start    = new Date(bill.startDate); start.setHours(0,0,0,0);
+      const days     = Math.max(1, Math.round((today - start) / 86400000) + 1);
+      const accrued  = days * (bill.perDayCharge || 0) * (bill.quantity || 1);
+      const pending  = bill.pendingAmount || 0;
+      const initials = cust.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
+      return `
+        <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
+          <div class="home-run-avatar">${initials}</div>
+          <div class="home-run-body">
+            <div class="home-run-top">
+              <span class="home-run-name">${esc(cust.name)}</span>
+              <span class="home-run-mobile">${esc(cust.mobile)}</span>
+            </div>
+            <div class="home-run-meta">
+              <span>📅 ${fmtDate(bill.startDate)}</span>
+              <span>⚡ ${days} day${days !== 1 ? 's' : ''} running</span>
+              <span>📦 ${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</span>
+              <span>₹${bill.perDayCharge}/day</span>
+            </div>
+            <div class="home-run-amounts">
+              <div class="home-run-amt-block">
+                <span class="home-run-amt-label">Accrued</span>
+                <span class="home-run-amt-val">₹${accrued.toLocaleString()}</span>
+              </div>
+              <div class="home-run-amt-block home-run-amt-pending">
+                <span class="home-run-amt-label">Pending</span>
+                <span class="home-run-amt-val">₹${pending.toLocaleString()}</span>
+              </div>
+              <div class="home-run-amt-block home-run-amt-collected">
+                <span class="home-run-amt-label">Collected</span>
+                <span class="home-run-amt-val">₹${(bill.collectedAmount||0).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (e) {
+    document.getElementById('home-running-list').innerHTML =
+      `<p class="empty-row" style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+// Navigate to customer detail from Home
+function switchToCustomer(id) {
+  // activate customers tab then open the customer page
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="customers"]').classList.add('active');
+  document.getElementById('tab-customers').classList.add('active');
+  openCustomerPage(id);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -486,6 +584,7 @@ async function submitAddBill(e) {
     loadBills();
     loadTrackerByCustomer();
     refreshCustomerPage();
+    loadHome();
     promptWhatsApp(bill.customerMobile, [
       `Dear ${bill.customerName},`,
       ``,
@@ -566,6 +665,7 @@ async function submitUpdateBill(e) {
     loadBills();
     loadTrackerByCustomer();
     refreshCustomerPage();
+    loadHome();
     promptWhatsApp(bill.customerMobile, [
       `Dear ${bill.customerName},`,
       ``,
@@ -615,6 +715,7 @@ async function doStopBill(id) {
     loadBills();
     loadTrackerByCustomer();
     refreshCustomerPage();
+    loadHome();
     const text = document.getElementById('stop-confirm-msg').value;
     const clean = (bill.customerMobile || '').replace(/\D/g, '');
     if (clean) window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(text)}`, '_blank');

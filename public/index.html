@@ -42,7 +42,8 @@
 
   <!-- NAV TABS -->
   <nav class="tab-bar">
-    <button class="tab-btn active" data-tab="customers">👤 Customers</button>
+    <button class="tab-btn active" data-tab="home">🏠 Home</button>
+    <button class="tab-btn" data-tab="customers">👤 Customers</button>
     <button class="tab-btn" data-tab="bills">📄 Bills</button>
     <button class="tab-btn" data-tab="tracker">📊 Tracker</button>
     <button class="tab-btn" data-tab="backup">💾 Backup</button>
@@ -53,8 +54,42 @@
   <!-- MAIN CONTENT -->
   <main class="main">
 
+    <!-- ══════════════ HOME TAB ══════════════ -->
+    <section id="tab-home" class="tab-section active">
+
+      <!-- Summary stat row -->
+      <div class="home-stats-row">
+        <div class="home-stat" id="hs-customers">
+          <div class="home-stat-value" id="hs-val-customers">—</div>
+          <div class="home-stat-label">Customers</div>
+        </div>
+        <div class="home-stat" id="hs-running">
+          <div class="home-stat-value" id="hs-val-running">—</div>
+          <div class="home-stat-label">Running Sets</div>
+        </div>
+        <div class="home-stat home-stat-danger" id="hs-pending">
+          <div class="home-stat-value" id="hs-val-pending">—</div>
+          <div class="home-stat-label">Total Pending</div>
+        </div>
+        <div class="home-stat home-stat-success" id="hs-collected">
+          <div class="home-stat-value" id="hs-val-collected">—</div>
+          <div class="home-stat-label">Total Collected</div>
+        </div>
+      </div>
+
+      <!-- Running sets section -->
+      <div class="home-section-header">
+        <span>⚡ Currently Running Sets</span>
+        <span class="home-section-badge" id="hs-running-badge">0</span>
+      </div>
+      <div id="home-running-list">
+        <p class="empty-row">Loading…</p>
+      </div>
+
+    </section>
+
     <!-- ══════════════ CUSTOMERS TAB ══════════════ -->
-    <section id="tab-customers" class="tab-section active">
+    <section id="tab-customers" class="tab-section">
 
       <!-- ── Customer List View ── -->
       <div id="customer-list-view">
