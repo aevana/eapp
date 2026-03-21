@@ -204,7 +204,7 @@ function sendWhatsAppBillReminderFromDetail(customerId, billId) {
   if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
   const start   = bill.startDate ? new Date(bill.startDate) : null;
   const stop    = bill.stopDate  ? new Date(bill.stopDate)  : new Date();
-  const days    = start ? Math.max(1, Math.ceil((stop - start) / 86400000)) : 1;
+  const days    = start ? Math.max(1, Math.ceil((stop - start) / 86400000) + 1) : 1;
   const total   = bill.total || 0;
   const paid    = bill.collectedAmount || 0;
   const pending = bill.pendingAmount || 0;
@@ -419,7 +419,7 @@ function updateBillPreview() {
   if (!start) return;
   const s    = new Date(start);
   const e2   = stop ? new Date(stop) : new Date();
-  const days = Math.max(0, Math.ceil((e2 - s) / 86400000));
+  const days = Math.max(1, Math.ceil((e2 - s) / 86400000) + 1);
   const total   = days * qty * perDay;
   const pending = Math.max(0, total + arrears - collected);
   document.getElementById('prev-days').textContent    = days;
