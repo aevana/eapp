@@ -109,6 +109,28 @@ document.addEventListener('DOMContentLoaded', () => {
   setDateChip('today');
   loadCustomers(); // also populates trackerData
   loadBills();
+
+  // ── Android hardware back button ───────────────────────────────
+  document.addEventListener('backbutton', function(e) {
+    // 1. Close the topmost open modal
+    const openModals = [...document.querySelectorAll('.modal-overlay.open')];
+    if (openModals.length) {
+      e.preventDefault();
+      closeModal(openModals[openModals.length - 1].id);
+      return;
+    }
+    // 2. Customer detail page is visible → go back to list
+    if (document.getElementById('customer-detail-view')?.style.display !== 'none') {
+      e.preventDefault();
+      closeCustomerPage();
+      return;
+    }
+    // 3. Already at root — minimize rather than exit
+    e.preventDefault();
+    if (window.Capacitor?.Plugins?.App) {
+      window.Capacitor.Plugins.App.minimizeApp();
+    }
+  }, false);
 });
 
 // ── API helper — routes to localStorage DB (works offline / in APK) ──
@@ -1345,7 +1367,7 @@ async function doDelete(type, id) {
 //  BACKUP & RESTORE
 // ══════════════════════════════════════════════════════════════
 
-function backupAllData() {
+async function backupAllData() {
   const backup = {
     version:    '1',
     exportedAt: new Date().toISOString(),
@@ -1356,11 +1378,28 @@ function backupAllData() {
   };
   const total = backup.customers.length + backup.bills.length + backup.charges.length;
   if (!total) { showToast('No data to backup.', 'warning'); return; }
-  const date = new Date().toISOString().split('T')[0];
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `ebt-backup-${date}.json`;
+  const date     = new Date().toISOString().split('T')[0];
+  const filename = `ebt-backup-${date}.json`;
+  const json     = JSON.stringify(backup, null, 2);
+  const blob     = new Blob([json], { type: 'application/json' });
+  const file     = new File([blob], filename, { type: 'application/json' });
+
+  // On mobile (Android WebView) the anchor-download trick is blocked;
+  // use the Web Share API with file sharing when available.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'EBT Backup' });
+      return;
+    } catch (err) {
+      if (err.name !== 'AbortError') showToast('Share cancelled.', 'warning');
+      return;
+    }
+  }
+
+  // Desktop / PWA fallback
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = filename;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
