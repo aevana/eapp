@@ -69,7 +69,7 @@ fetch('version.txt')
   })
   .catch(() => {});
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Main tab navigation
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -107,8 +107,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   setDateChip('today');
-  loadCustomers(); // also populates trackerData
-  loadBills();
+  await Promise.all([loadCustomers(), loadBills()]);
+  // Hide splash once initial data is ready
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('hide');
+      setTimeout(() => splash.remove(), 520);
+    }, 400);
+  }
 
   // ── Android hardware back button ───────────────────────────────
   document.addEventListener('backbutton', function(e) {
