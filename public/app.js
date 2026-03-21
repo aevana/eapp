@@ -202,20 +202,17 @@ function sendWhatsAppBillReminderFromDetail(customerId, billId) {
   const customer = allCustomers.find(c => c.id === customerId);
   const bill     = allBills.find(b => b.id === billId);
   if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
-  const start   = bill.startDate ? new Date(bill.startDate) : null;
-  const stop    = bill.stopDate  ? new Date(bill.stopDate)  : new Date();
-  const days    = start ? Math.max(1, Math.ceil((stop - start) / 86400000) + 1) : 1;
+  const fmt     = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const days    = bill.numberOfDays || 1;
   const total   = bill.total || 0;
   const paid    = bill.collectedAmount || 0;
   const pending = bill.pendingAmount || 0;
-  const rate    = (days && bill.quantity) ? Math.round(total / (days * bill.quantity)) : 0;
-  const fmt     = d => d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
   showBillImageModal(customer.mobile, {
     name:       customer.name,
-    period:     fmt(start) + ' → ' + (bill.stopDate ? fmt(stop) : 'Running'),
+    period:     fmt(bill.startDate) + ' → ' + (bill.stopDate ? fmt(bill.stopDate) : 'Running'),
     days:       String(days),
     sets:       String(bill.quantity),
-    rate:       '₹' + rate + '/day',
+    rate:       '₹' + (bill.perDayCharge || 0) + '/day',
     total:      '₹' + total.toLocaleString('en-IN'),
     paid:       '₹' + paid.toLocaleString('en-IN'),
     pending:    '₹' + pending.toLocaleString('en-IN'),
@@ -753,25 +750,21 @@ function sendWhatsAppBillReminder(customerId, billId) {
   const bill = customer.bills.find(b => b.id === billId);
   if (!bill) return;
 
-  const start = bill.startDate ? new Date(bill.startDate) : null;
-  const stop  = bill.stopDate  ? new Date(bill.stopDate)  : new Date();
-  const days  = start ? Math.max(1, Math.ceil((stop - start) / 86400000)) : 1;
-  const sets  = bill.quantity || 1;
-  const total = bill.total || 0;
-  const paid  = bill.collectedAmount || 0;
+  const fmt     = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const days    = bill.numberOfDays || 1;
+  const total   = bill.total || 0;
+  const paid    = bill.collectedAmount || 0;
   const pending = bill.pendingAmount || 0;
-  const rate  = (days && sets) ? Math.round(total / (days * sets)) : 0;
-  const fmt   = d => d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '\u2014';
 
   showBillImageModal(customer.mobile, {
     name:       customer.name,
-    period:     fmt(start) + ' \u2192 ' + (bill.stopDate ? fmt(stop) : 'Running'),
+    period:     fmt(bill.startDate) + ' → ' + (bill.stopDate ? fmt(bill.stopDate) : 'Running'),
     days:       String(days),
-    sets:       String(sets),
-    rate:       '\u20B9' + rate + '/day',
-    total:      '\u20B9' + total.toLocaleString('en-IN'),
-    paid:       '\u20B9' + paid.toLocaleString('en-IN'),
-    pending:    '\u20B9' + pending.toLocaleString('en-IN'),
+    sets:       String(bill.quantity || 1),
+    rate:       '₹' + (bill.perDayCharge || 0) + '/day',
+    total:      '₹' + total.toLocaleString('en-IN'),
+    paid:       '₹' + paid.toLocaleString('en-IN'),
+    pending:    '₹' + pending.toLocaleString('en-IN'),
     pendingAmt: pending,
   });
 }
