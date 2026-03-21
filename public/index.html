@@ -140,8 +140,14 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>#</th><th>Customer</th><th>Mobile</th><th>Start Date</th><th>Stop Date</th>
-                <th>Days</th><th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
+                <th>#</th><th>Customer</th><th>Mobile</th>
+                <th class="th-sort" onclick="sortTrackerBills('startDate')" id="th-startDate">Start Date</th>
+                <th class="th-sort" onclick="sortTrackerBills('stopDate')"  id="th-stopDate">Stop Date</th>
+                <th class="th-sort" onclick="sortTrackerBills('numberOfDays')" id="th-numberOfDays">Days</th>
+                <th>Qty</th><th>Per Day (₹)</th>
+                <th class="th-sort" onclick="sortTrackerBills('total')"  id="th-total">Total (₹)</th>
+                <th>Collected (₹)</th><th>Pending (₹)</th>
+                <th class="th-sort" onclick="sortTrackerBills('status')" id="th-status">Status</th>
               </tr>
             </thead>
             <tbody id="tracker-bills-tbody">

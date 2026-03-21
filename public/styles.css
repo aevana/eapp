@@ -138,8 +138,9 @@ body {
 }
 .data-table td { padding: .8rem 1rem; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
 .data-table th.th-sort { cursor: pointer; user-select: none; }
-.data-table th.th-sort:hover { background: var(--gray-100); }
-.sort-icon { font-size: .75em; opacity: .45; margin-left: 3px; }
+.data-table th.th-sort:hover { background: var(--gray-100); color: var(--primary); }
+.data-table th.th-sort-active { color: var(--primary); background: #eff6ff; }
+.sort-icon { font-size: .7em; margin-left: 3px; opacity: .8; }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover td { background: #f8fafc; }
 .empty-row { text-align: center; color: var(--gray-400); padding: 2.5rem 1rem !important; font-style: italic; }

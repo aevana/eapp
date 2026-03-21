@@ -782,6 +782,9 @@ function sendWhatsAppBillReminder(customerId, billId) {
 //  TRACKER – By Month/Year
 // ══════════════════════════════════════════════════════════════
 
+let lastTrackerBills  = [];
+let trackerBillSort   = { col: null, asc: true };
+
 async function loadTrackerByBill() {
   const month = document.getElementById('filter-month').value;
   const year  = document.getElementById('filter-year').value;
@@ -809,28 +812,82 @@ async function loadTrackerByBill() {
       </div>
     `;
 
-    const tbody = document.getElementById('tracker-bills-tbody');
-    if (!bills.length) {
-      tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found for this period.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = bills.map((b, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td><strong>${esc(b.customerName)}</strong></td>
-        <td>${esc(b.customerMobile || '')}</td>
-        <td>${fmtDate(b.startDate)}</td>
-        <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
-        <td>${b.numberOfDays ?? '—'}</td>
-        <td>${b.quantity}</td>
-        <td>₹${b.perDayCharge}</td>
-        <td>₹${(b.total ?? 0).toLocaleString()}</td>
-        <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
-        <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
-        <td><span class="badge badge-${b.status}">${b.status}</span></td>
-      </tr>
-    `).join('');
+    lastTrackerBills = bills;
+    trackerBillSort  = { col: null, asc: true };
+    renderTrackerBills(bills);
   } catch (e) { showToast(e.message, 'error'); }
+}
+
+function sortTrackerBills(col) {
+  if (trackerBillSort.col === col) {
+    trackerBillSort.asc = !trackerBillSort.asc;
+  } else {
+    trackerBillSort = { col, asc: true };
+  }
+  renderTrackerBills(lastTrackerBills);
+}
+
+function renderTrackerBills(bills) {
+  const tbody = document.getElementById('tracker-bills-tbody');
+  if (!bills.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found for this period.</td></tr>';
+    return;
+  }
+
+  // Update header indicators
+  ['startDate','stopDate','numberOfDays','total','status'].forEach(c => {
+    const th = document.getElementById('th-' + c);
+    if (!th) return;
+    const base = { startDate:'Start Date', stopDate:'Stop Date', numberOfDays:'Days', total:'Total (₹)', status:'Status' }[c];
+    if (trackerBillSort.col === c) {
+      th.innerHTML = `${base} <span class="sort-icon">${trackerBillSort.asc ? '▲' : '▼'}</span>`;
+      th.classList.add('th-sort-active');
+    } else {
+      th.innerHTML = base;
+      th.classList.remove('th-sort-active');
+    }
+  });
+
+  // Sort
+  const sorted = [...bills].sort((a, b) => {
+    const col = trackerBillSort.col;
+    if (!col) return 0;
+    let av = a[col], bv = b[col];
+    // Numeric / date fields
+    if (col === 'numberOfDays' || col === 'total') {
+      av = av ?? 0; bv = bv ?? 0;
+    } else if (col === 'startDate' || col === 'stopDate') {
+      // nulls (no stopDate) sort last regardless of direction
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      av = new Date(av).getTime();
+      bv = new Date(bv).getTime();
+    } else {
+      av = (av || '').toString().toLowerCase();
+      bv = (bv || '').toString().toLowerCase();
+    }
+    if (av < bv) return trackerBillSort.asc ? -1 : 1;
+    if (av > bv) return trackerBillSort.asc ?  1 : -1;
+    return 0;
+  });
+
+  tbody.innerHTML = sorted.map((b, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${esc(b.customerName)}</strong></td>
+      <td>${esc(b.customerMobile || '')}</td>
+      <td>${fmtDate(b.startDate)}</td>
+      <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
+      <td>${b.numberOfDays ?? '—'}</td>
+      <td>${b.quantity}</td>
+      <td>₹${b.perDayCharge}</td>
+      <td>₹${(b.total ?? 0).toLocaleString()}</td>
+      <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
+      <td><span class="badge badge-${b.status}">${b.status}</span></td>
+    </tr>
+  `).join('');
 }
 
 // ══════════════════════════════════════════════════════════════
