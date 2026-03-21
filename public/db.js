@@ -112,7 +112,7 @@ const DB = (() => {
     return bills;
   }
 
-  function addBill({ customerId, startDate, quantity, perDayCharge, arrears }) {
+  function addBill({ customerId, startDate, quantity, perDayCharge, arrears, comments }) {
     if (!customerId || !startDate) throw new Error('Customer and start date required');
     const bills = read(KEYS.bills);
     const bill = {
@@ -123,6 +123,7 @@ const DB = (() => {
       quantity: quantity || 1,
       perDayCharge: perDayCharge || 200,
       arrears: parseFloat(arrears) || 0,
+      comments: comments || '',
       collectedAmount: 0,
       status: 'active',
       createdAt: new Date().toISOString(),

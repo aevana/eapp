@@ -13,6 +13,22 @@
 </head>
 <body>
 
+  <!-- SPLASH SCREEN -->
+  <div id="splash-screen">
+    <div class="splash-content">
+      <div class="splash-icon">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="55,8 28,52 50,52 45,92 72,48 50,48" fill="#FFD700"/>
+        </svg>
+      </div>
+      <div class="splash-app-name">Electricity Bills</div>
+      <div class="splash-brand">iAppSolutions</div>
+      <div class="splash-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
   <!-- HEADER -->
   <header class="header">
     <div class="header-inner">
@@ -26,18 +42,54 @@
 
   <!-- NAV TABS -->
   <nav class="tab-bar">
-    <button class="tab-btn active" data-tab="customers">👤 Customers</button>
+    <button class="tab-btn active" data-tab="home">🏠 Home</button>
+    <button class="tab-btn" data-tab="customers">👤 Customers</button>
     <button class="tab-btn" data-tab="bills">📄 Bills</button>
     <button class="tab-btn" data-tab="tracker">📊 Tracker</button>
     <button class="tab-btn" data-tab="backup">💾 Backup</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
     <button class="tab-btn" data-tab="about">ℹ️ About</button>
   </nav>
 
   <!-- MAIN CONTENT -->
   <main class="main">
 
+    <!-- ══════════════ HOME TAB ══════════════ -->
+    <section id="tab-home" class="tab-section active">
+
+      <!-- Summary stat row -->
+      <div class="home-stats-row">
+        <div class="home-stat" id="hs-customers">
+          <div class="home-stat-value" id="hs-val-customers">—</div>
+          <div class="home-stat-label">Customers</div>
+        </div>
+        <div class="home-stat" id="hs-running">
+          <div class="home-stat-value" id="hs-val-running">—</div>
+          <div class="home-stat-label">Running Sets</div>
+        </div>
+        <div class="home-stat home-stat-danger" id="hs-pending">
+          <div class="home-stat-value" id="hs-val-pending">—</div>
+          <div class="home-stat-label">Total Pending</div>
+        </div>
+        <div class="home-stat home-stat-success" id="hs-collected">
+          <div class="home-stat-value" id="hs-val-collected">—</div>
+          <div class="home-stat-label">Total Collected</div>
+        </div>
+      </div>
+
+      <!-- Running sets section -->
+      <div class="home-section-header">
+        <span>⚡ Currently Running Sets</span>
+        <span class="home-section-badge" id="hs-running-badge">0</span>
+      </div>
+      <div id="home-running-list">
+        <p class="empty-row">Loading…</p>
+      </div>
+
+    </section>
+
     <!-- ══════════════ CUSTOMERS TAB ══════════════ -->
-    <section id="tab-customers" class="tab-section active">
+    <section id="tab-customers" class="tab-section">
 
       <!-- ── Customer List View ── -->
       <div id="customer-list-view">
@@ -98,11 +150,11 @@
           <thead>
             <tr>
               <th>#</th><th>Customer</th><th>Start Date</th><th>Stop Date</th><th>Days</th>
-              <th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Actions</th>
+              <th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Arrears (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Comments</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="bills-tbody">
-            <tr><td colspan="12" class="empty-row">Loading…</td></tr>
+            <tr><td colspan="14" class="empty-row">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -113,32 +165,33 @@
       <div class="section-header">
         <h2>Tracker</h2>
         <div class="tracker-tabs">
-          <button class="tracker-tab active" data-tracker="by-customer" onclick="switchTracker('by-customer')">By Customer</button>
-          <button class="tracker-tab" data-tracker="by-bill" onclick="switchTracker('by-bill')">By Month / Year</button>
+          <button class="tracker-tab active" data-tracker="by-bill" onclick="switchTracker('by-bill')">By Month / Year</button>
           <button class="tracker-tab" data-tracker="balance-sheet" onclick="switchTracker('balance-sheet')">📒 Balance Sheet</button>
         </div>
       </div>
 
-      <!-- ─── By Customer ─── -->
-      <div id="tracker-by-customer" class="tracker-panel active">
-        <p class="hint">Click on a customer row to expand their bills. Use 📱 WhatsApp to send a payment reminder to active customers.</p>
-        <div id="tracker-customer-list"></div>
-      </div>
-
       <!-- ─── By Month/Year ─── -->
-      <div id="tracker-by-bill" class="tracker-panel">
-        <div class="month-filter">
-          <label>Month</label>
-          <select id="filter-month">
-            <option value="1">January</option><option value="2">February</option>
-            <option value="3">March</option><option value="4">April</option>
-            <option value="5">May</option><option value="6">June</option>
-            <option value="7">July</option><option value="8">August</option>
-            <option value="9">September</option><option value="10">October</option>
-            <option value="11">November</option><option value="12">December</option>
-          </select>
-          <label>Year</label>
-          <input type="number" id="filter-year" value="2025" min="2000" max="2100" />
+      <div id="tracker-by-bill" class="tracker-panel active">
+        <div class="bs-filter-block" style="margin-bottom:1.25rem">
+          <div class="bs-year-row">
+            <label class="bs-year-label">Year</label>
+            <input type="number" id="filter-year" value="2025" min="2000" max="2100" class="bs-year-input" />
+          </div>
+          <input type="hidden" id="filter-month" value="1" />
+          <div class="bs-month-chips" id="tracker-month-chips">
+            <button type="button" class="month-chip" data-month="1"  onclick="selectTrackerMonth(1)">Jan</button>
+            <button type="button" class="month-chip" data-month="2"  onclick="selectTrackerMonth(2)">Feb</button>
+            <button type="button" class="month-chip" data-month="3"  onclick="selectTrackerMonth(3)">Mar</button>
+            <button type="button" class="month-chip" data-month="4"  onclick="selectTrackerMonth(4)">Apr</button>
+            <button type="button" class="month-chip" data-month="5"  onclick="selectTrackerMonth(5)">May</button>
+            <button type="button" class="month-chip" data-month="6"  onclick="selectTrackerMonth(6)">Jun</button>
+            <button type="button" class="month-chip" data-month="7"  onclick="selectTrackerMonth(7)">Jul</button>
+            <button type="button" class="month-chip" data-month="8"  onclick="selectTrackerMonth(8)">Aug</button>
+            <button type="button" class="month-chip" data-month="9"  onclick="selectTrackerMonth(9)">Sep</button>
+            <button type="button" class="month-chip" data-month="10" onclick="selectTrackerMonth(10)">Oct</button>
+            <button type="button" class="month-chip" data-month="11" onclick="selectTrackerMonth(11)">Nov</button>
+            <button type="button" class="month-chip" data-month="12" onclick="selectTrackerMonth(12)">Dec</button>
+          </div>
           <button class="btn btn-primary" onclick="loadTrackerByBill()">View</button>
         </div>
         <div id="tracker-summary-cards" class="summary-cards"></div>
@@ -146,8 +199,14 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>#</th><th>Customer</th><th>Mobile</th><th>Start Date</th><th>Stop Date</th>
-                <th>Days</th><th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
+                <th>#</th><th>Customer</th><th>Mobile</th>
+                <th class="th-sort" onclick="sortTrackerBills('startDate')" id="th-startDate">Start Date</th>
+                <th class="th-sort" onclick="sortTrackerBills('stopDate')"  id="th-stopDate">Stop Date</th>
+                <th class="th-sort" onclick="sortTrackerBills('numberOfDays')" id="th-numberOfDays">Days</th>
+                <th>Qty</th><th>Per Day (₹)</th>
+                <th class="th-sort" onclick="sortTrackerBills('total')"  id="th-total">Total (₹)</th>
+                <th>Collected (₹)</th><th>Pending (₹)</th>
+                <th class="th-sort" onclick="sortTrackerBills('status')" id="th-status">Status</th>
               </tr>
             </thead>
             <tbody id="tracker-bills-tbody">
@@ -162,24 +221,39 @@
 
         <!-- Filter + action row -->
         <div class="bs-toolbar">
-          <div class="month-filter">
-            <label>Month</label>
-            <select id="bs-filter-month">
-              <option value="1">January</option><option value="2">February</option>
-              <option value="3">March</option><option value="4">April</option>
-              <option value="5">May</option><option value="6">June</option>
-              <option value="7">July</option><option value="8">August</option>
-              <option value="9">September</option><option value="10">October</option>
-              <option value="11">November</option><option value="12">December</option>
-            </select>
-            <label>Year</label>
-            <input type="number" id="bs-filter-year" value="2025" min="2000" max="2100" />
+
+          <!-- Year → Month chips → View -->
+          <div class="bs-filter-block">
+            <div class="bs-year-row">
+              <label class="bs-year-label">Year</label>
+              <input type="number" id="bs-filter-year" value="2025" min="2000" max="2100" class="bs-year-input" />
+            </div>
+            <input type="hidden" id="bs-filter-month" value="1" />
+            <div class="bs-month-chips" id="bs-month-chips">
+              <button type="button" class="month-chip" data-month="1"  onclick="selectBSMonth(1)">Jan</button>
+              <button type="button" class="month-chip" data-month="2"  onclick="selectBSMonth(2)">Feb</button>
+              <button type="button" class="month-chip" data-month="3"  onclick="selectBSMonth(3)">Mar</button>
+              <button type="button" class="month-chip" data-month="4"  onclick="selectBSMonth(4)">Apr</button>
+              <button type="button" class="month-chip" data-month="5"  onclick="selectBSMonth(5)">May</button>
+              <button type="button" class="month-chip" data-month="6"  onclick="selectBSMonth(6)">Jun</button>
+              <button type="button" class="month-chip" data-month="7"  onclick="selectBSMonth(7)">Jul</button>
+              <button type="button" class="month-chip" data-month="8"  onclick="selectBSMonth(8)">Aug</button>
+              <button type="button" class="month-chip" data-month="9"  onclick="selectBSMonth(9)">Sep</button>
+              <button type="button" class="month-chip" data-month="10" onclick="selectBSMonth(10)">Oct</button>
+              <button type="button" class="month-chip" data-month="11" onclick="selectBSMonth(11)">Nov</button>
+              <button type="button" class="month-chip" data-month="12" onclick="selectBSMonth(12)">Dec</button>
+            </div>
             <button class="btn btn-primary" onclick="loadBalanceSheet()">View</button>
           </div>
-          <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
-          <button class="btn btn-secondary" onclick="exportMonthlyChargesCSV()">📥 Export CSV</button>
-          <button class="btn btn-secondary" onclick="importCSVFile('monthly-charges')">📤 Import CSV</button>
-          <input type="file" id="csv-import-monthly-charges" accept=".csv" style="display:none" onchange="handleCSVImport(event,'monthly-charges')" />
+
+          <!-- Action buttons -->
+          <div class="bs-toolbar-actions">
+            <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
+            <button class="btn btn-secondary" onclick="exportMonthlyChargesCSV()">📥 Export CSV</button>
+            <button class="btn btn-secondary" onclick="importCSVFile('monthly-charges')">📤 Import CSV</button>
+            <input type="file" id="csv-import-monthly-charges" accept=".csv" style="display:none" onchange="handleCSVImport(event,'monthly-charges')" />
+          </div>
+
         </div>
 
         <!-- Revenue hero card -->
@@ -207,12 +281,18 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>#</th><th>Customer</th><th>Mobile</th><th>Qty</th>
-                  <th>Total (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th>
+                  <th>#</th><th>Customer</th><th>Mobile</th>
+                  <th class="th-sort" onclick="sortBSBills('startDate')"    id="bs-th-startDate">Start Date</th>
+                  <th class="th-sort" onclick="sortBSBills('stopDate')"     id="bs-th-stopDate">Stop Date</th>
+                  <th class="th-sort" onclick="sortBSBills('numberOfDays')" id="bs-th-numberOfDays">Days</th>
+                  <th>Qty</th><th>Per Day (₹)</th>
+                  <th class="th-sort" onclick="sortBSBills('total')"        id="bs-th-total">Total (₹)</th>
+                  <th>Arrears (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th>
+                  <th class="th-sort" onclick="sortBSBills('status')"       id="bs-th-status">Status</th>
                 </tr>
               </thead>
               <tbody id="bs-bills-tbody">
-                <tr><td colspan="8" class="empty-row">Select month/year and click View.</td></tr>
+                <tr><td colspan="13" class="empty-row">Select month/year and click View.</td></tr>
               </tbody>
             </table>
           </div>
@@ -249,6 +329,55 @@
       </div>
     </section>
 
+    <!-- ══════════════ SETTINGS TAB ══════════════ -->
+    <section id="tab-settings" class="tab-section">
+      <div class="about-page">
+        <div class="about-section">
+          <h3 class="about-section-title">⚙️ App Settings</h3>
+          <div class="settings-card">
+
+            <p class="settings-section-label">Bill Image</p>
+            <div class="form-group">
+              <label>App Header</label>
+              <input type="text" id="setting-app-header" placeholder="e.g. ⚡ Electricity Bill" maxlength="60" />
+              <p class="hint">Shown as the title on the electricity bill image.</p>
+            </div>
+            <div class="form-group">
+              <label>Sub Header</label>
+              <input type="text" id="setting-app-subheader" placeholder="e.g. iApp Solutions" maxlength="60" />
+              <p class="hint">Shown below the title on the electricity bill image.</p>
+            </div>
+
+            <p class="settings-section-label" style="margin-top:1.25rem">Billing Defaults</p>
+            <div class="settings-row">
+              <div class="form-group">
+                <label>Default Per Day Charge (₹)</label>
+                <input type="number" id="setting-default-perday" min="1" placeholder="e.g. 200" />
+                <p class="hint">Pre-filled in every new bill.</p>
+              </div>
+              <div class="form-group">
+                <label>Default Quantity (Sets)</label>
+                <input type="number" id="setting-default-qty" min="1" placeholder="e.g. 1" />
+                <p class="hint">Pre-filled in every new bill.</p>
+              </div>
+            </div>
+
+            <p class="settings-section-label" style="margin-top:1.25rem">Operator Details</p>
+            <div class="form-group">
+              <label>Operator Mobile Number</label>
+              <input type="tel" id="setting-operator-mobile" placeholder="10-digit mobile" maxlength="10" />
+              <p class="hint">Shown on bill image footer and WhatsApp messages.</p>
+            </div>
+
+            <div class="modal-actions" style="justify-content:flex-start;margin-top:1.25rem;">
+              <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+              <button class="btn btn-secondary" onclick="resetSettings()">↺ Reset to Default</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ══════════════ ABOUT TAB ══════════════ -->
     <section id="tab-about" class="tab-section">
       <div class="about-page">
@@ -260,7 +389,7 @@
           <div class="about-meta-grid">
             <div class="about-meta-item">
               <span class="about-meta-label">Author</span>
-              <span class="about-meta-value">Anji Evana</span>
+              <span class="about-meta-value">Karthikeya E</span>
             </div>
             <div class="about-meta-item">
               <span class="about-meta-label">Company</span>
@@ -326,7 +455,7 @@
           <h3 class="about-section-title">📧 Contact &amp; Support</h3>
           <div class="about-contact-box">
             <p><strong>App:</strong> Electricity Bills Tracker v<span id="app-version-contact">1.0.0</span></p>
-            <p><strong>Author:</strong> Anji Evana</p>
+            <p><strong>Author:</strong> Karthikeya E</p>
             <p><strong>Company:</strong> iApp Solutions Pvt. Ltd.</p>
             <p><strong>Platform:</strong> Web Browser &amp; Android (via Capacitor)</p>
             <p class="about-copyright">© 2026 iApp Solutions Pvt. Ltd. All Rights Reserved.</p>
@@ -430,6 +559,16 @@
             <input type="number" id="b-perday" value="200" min="1" />
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Arrears (₹)</label>
+            <input type="number" id="b-arrears" value="0" min="0" placeholder="Previous pending amount" />
+          </div>
+          <div class="form-group">
+            <label>Comments</label>
+            <input type="text" id="b-comments" placeholder="Optional notes…" />
+          </div>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-bill')">Cancel</button>
           <button type="submit" class="btn btn-primary">Add Bill</button>
@@ -478,6 +617,14 @@
             <label>Collected Amount (₹)</label>
             <input type="number" id="ub-collected" min="0" value="0" oninput="updateBillPreview()" />
           </div>
+          <div class="form-group">
+            <label>Arrears (₹)</label>
+            <input type="number" id="ub-arrears" min="0" value="0" oninput="updateBillPreview()" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Comments</label>
+          <input type="text" id="ub-comments" placeholder="Optional notes…" />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-update-bill')">Cancel</button>

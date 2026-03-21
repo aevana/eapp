@@ -2,26 +2,51 @@
 
 > A fully offline-first web application and Android APK for electricity transformer operators to manage customer billing records, track payments, and generate WhatsApp reminders.
 
-**Built by iApp Solutions Pvt. Ltd. © 2026 — All Rights Reserved.**
+**Version 2.0.1 — Built by iApp Solutions Pvt. Ltd. © 2026 — All Rights Reserved.**
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Features](#features)
-3. [Functional Flow](#functional-flow)
-4. [Technical Architecture](#technical-architecture)
-5. [Project Structure](#project-structure)
-6. [Data Models](#data-models)
-7. [API Reference](#api-reference)
-8. [Client-Side DB Layer](#client-side-db-layer)
-9. [PWA & Service Worker](#pwa--service-worker)
-10. [Android APK (Capacitor)](#android-apk-capacitor)
-11. [Data Migration](#data-migration)
-12. [Setup & Running](#setup--running)
-13. [Scripts](#scripts)
-14. [Author & Credits](#author--credits)
+1. [What's New in v2.0.1](#whats-new-in-v201)
+2. [Overview](#overview)
+3. [Features](#features)
+4. [Functional Flow](#functional-flow)
+5. [Technical Architecture](#technical-architecture)
+6. [Project Structure](#project-structure)
+7. [Data Models](#data-models)
+8. [API Reference](#api-reference)
+9. [Client-Side DB Layer](#client-side-db-layer)
+10. [PWA & Service Worker](#pwa--service-worker)
+11. [Android APK (Capacitor)](#android-apk-capacitor)
+12. [Data Migration](#data-migration)
+13. [Setup & Running](#setup--running)
+14. [Scripts](#scripts)
+15. [Author & Credits](#author--credits)
+
+---
+
+## What's New in v2.0.1
+
+### 🏠 Home Tab (Default Landing Page)
+- The app now opens on a **Home** tab instead of Customers.
+- **4-stat summary row** at the top: Total Customers · Running Sets · Total Pending · Total Collected.
+- **"Currently Running Sets"** section — one card per active bill showing:
+  - Customer initials avatar, name and mobile
+  - Start date, days running, sets (qty), rate per day
+  - Accrued amount, Pending (red), Collected (green)
+- Clicking a running-set card navigates straight to that customer's detail page.
+- Stats refresh automatically whenever a bill is added, updated, or stopped.
+
+### ⚙️ Settings Enhancements
+- **Default Per Day Charge (₹)** — saved in Settings; pre-fills the rate field on every new bill.
+- **Default Quantity (Sets)** — saved in Settings; pre-fills the sets field on every new bill.
+- **Operator Mobile Number** — saved in Settings; shown on the bill image footer as
+  `Contact: XXXXXXXXXX | Thank you!` instead of the generic message.
+- Settings page reorganised with three labelled sections: *Bill Image*, *Billing Defaults*, *Operator Details*.
+
+### 🔢 Version
+- `version.txt` bumped to **2.0.1**.
 
 ---
 
@@ -43,6 +68,7 @@ The app works **100% offline** using `localStorage` as the primary data store. W
 
 | Feature | Description |
 |---------|-------------|
+| **Home Dashboard** | Default landing tab — summary stats + live cards for all currently running sets |
 | **Customer Management** | Add, edit, delete customers with name, mobile, address |
 | **Customer Cards** | Responsive card grid — name bold, mobile shaded; click to open detail page |
 | **Customer Detail Page** | View customer info + all their bills as cards with full action support |
@@ -52,6 +78,7 @@ The app works **100% offline** using `localStorage` as the primary data store. W
 | **Tracker — By Month/Year** | Filter all bills overlapping a selected month; summary totals |
 | **Balance Sheet** | Monthly P&L — customer collections vs. electricity board charges; donut charts |
 | **WhatsApp Reminders** | Canvas-rendered bill image shared/downloaded as PNG or sent via WhatsApp |
+| **Settings** | App header/sub-header, default rate & qty for new bills, operator mobile on bill image |
 | **CSV Import/Export** | Export customers and bills to CSV; import from CSV |
 | **Backup & Restore** | Full JSON backup export; restore from file |
 | **PWA** | Installable on Android/iOS home screen; works offline via Service Worker |
