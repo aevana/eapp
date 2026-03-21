@@ -637,6 +637,13 @@ function updateBillPreview() {
   const pending = Math.max(0, total + arrears - collected);
   document.getElementById('prev-days').textContent    = days;
   document.getElementById('prev-total').textContent   = `₹${total.toLocaleString()}`;
+  const arrearsWrap = document.getElementById('prev-arrears-wrap');
+  if (arrears > 0) {
+    document.getElementById('prev-arrears').textContent = `₹${arrears.toLocaleString()}`;
+    arrearsWrap.style.display = '';
+  } else {
+    arrearsWrap.style.display = 'none';
+  }
   document.getElementById('prev-pending').textContent = `₹${pending.toLocaleString()}`;
 }
 
