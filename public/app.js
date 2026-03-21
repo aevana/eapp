@@ -685,6 +685,7 @@ async function submitUpdateBill(e) {
       `Sets    : ${bill.quantity}`,
       `Rate    : ₹${bill.perDayCharge}/day`,
       `Total   : ₹${(bill.total || 0).toLocaleString()}`,
+      ...((bill.arrears || 0) > 0 ? [`Arrears : ₹${(bill.arrears).toLocaleString()}`] : []),
       `Paid    : ₹${(bill.collectedAmount || 0).toLocaleString()}`,
       `Pending : ₹${(bill.pendingAmount || 0).toLocaleString()}`,
       ``,
