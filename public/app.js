@@ -83,8 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Default month/year selectors to current month
   const now = new Date();
-  document.getElementById('filter-month').value    = now.getMonth() + 1;
   document.getElementById('filter-year').value     = now.getFullYear();
+  selectTrackerMonth(now.getMonth() + 1);
   document.getElementById('bs-filter-year').value  = now.getFullYear();
   selectBSMonth(now.getMonth() + 1);
 
@@ -872,6 +872,13 @@ function sendWhatsAppBillReminder(customerId, billId) {
 
 let lastTrackerBills  = [];
 let trackerBillSort   = { col: null, asc: true };
+
+function selectTrackerMonth(m) {
+  document.getElementById('filter-month').value = m;
+  document.querySelectorAll('#tracker-month-chips .month-chip').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.month) === m);
+  });
+}
 
 async function loadTrackerByBill() {
   if (!validateFields([{ id: 'filter-year', label: 'Year', required: true, min: 2000, max: 2100 }])) return;
