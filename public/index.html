@@ -95,12 +95,7 @@
       <div id="customer-list-view">
         <div class="section-header">
           <h2>Customer Management</h2>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-            <button class="btn btn-secondary" onclick="exportCustomersCSV()">📥 Export CSV</button>
-            <button class="btn btn-secondary" onclick="importCSVFile('customers')">📤 Import CSV</button>
-            <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
-          </div>
-          <input type="file" id="csv-import-customers" accept=".csv" style="display:none" onchange="handleCSVImport(event,'customers')" />
+          <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
         </div>
         <div class="search-bar">
           <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
