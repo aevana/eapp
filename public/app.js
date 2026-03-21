@@ -148,9 +148,11 @@ function renderCustomerPage(customer, bills) {
           <div class="cbill-stat"><span>Rate/day</span><strong>₹${b.perDayCharge}</strong></div>
           <div class="cbill-stat"><span>Days</span><strong>${b.numberOfDays ?? '—'}</strong></div>
           <div class="cbill-stat"><span>Total</span><strong>₹${(b.total ?? 0).toLocaleString()}</strong></div>
+          <div class="cbill-stat"><span>Arrears</span><strong style="color:${(b.arrears ?? 0) > 0 ? 'var(--warning,#f59e0b)' : 'inherit'}">₹${(b.arrears ?? 0).toLocaleString()}</strong></div>
           <div class="cbill-stat"><span>Collected</span><strong style="color:var(--success)">₹${(b.collectedAmount ?? 0).toLocaleString()}</strong></div>
           <div class="cbill-stat"><span>Pending</span><strong style="color:${b.pendingAmount > 0 ? 'var(--danger)' : 'inherit'}">₹${(b.pendingAmount ?? 0).toLocaleString()}</strong></div>
         </div>
+        ${b.comments ? `<div class="cbill-comments">💬 ${esc(b.comments)}</div>` : ''}
         <div class="cbill-actions">
           <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
           ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
@@ -283,7 +285,7 @@ async function loadBills() {
 function renderBills(bills) {
   const tbody = document.getElementById('bills-tbody');
   if (!bills.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty-row">No bills found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="empty-row">No bills found.</td></tr>';
     return;
   }
   tbody.innerHTML = bills.map((b, i) => `
@@ -296,9 +298,11 @@ function renderBills(bills) {
       <td>${b.quantity}</td>
       <td>₹${b.perDayCharge}</td>
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
+      <td>${(b.arrears ?? 0) > 0 ? `<span style="color:#f59e0b;font-weight:600">₹${(b.arrears).toLocaleString()}</span>` : '—'}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
       <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
+      <td style="max-width:120px;font-size:.8rem;color:#64748b;">${esc(b.comments || '—')}</td>
       <td class="actions-cell">
         <button class="btn btn-icon btn-edit" onclick="openUpdateBill('${b.id}')">✏️ Edit</button>
         ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}

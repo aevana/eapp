@@ -862,6 +862,14 @@ body {
   color: var(--gray-400);
 }
 .cbill-stat strong { font-size: .9rem; }
+.cbill-comments {
+  font-size: .8rem;
+  color: #64748b;
+  padding: .35rem .5rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  margin-top: .4rem;
+}
 .cbill-actions {
   display: flex;
   gap: .4rem;
