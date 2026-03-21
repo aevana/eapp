@@ -206,6 +206,16 @@ body {
 }
 .form-group textarea { resize: vertical; }
 
+/* ── Field validation ── */
+.input-error {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.15) !important;
+}
+.field-error {
+  display: block; margin-top: .25rem;
+  font-size: .78rem; color: #dc2626; font-weight: 500;
+}
+
 .modal-actions {
   display: flex; justify-content: flex-end; gap: .75rem;
   padding: 1.25rem 1.5rem; border-top: 1px solid var(--gray-200); margin-top: 1rem;

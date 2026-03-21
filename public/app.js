@@ -4,6 +4,58 @@ let allBills       = [];
 let trackerData    = [];   // by-customer tracker cache
 let lastBSData     = null; // last loaded balance-sheet payload
 
+// ── Validation helpers ─────────────────────────────────────────
+function showFieldError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('input-error');
+  let err = el.parentElement.querySelector('.field-error');
+  if (!err) { err = document.createElement('span'); err.className = 'field-error'; el.after(err); }
+  err.textContent = msg;
+}
+function clearFieldError(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('input-error');
+  el.parentElement?.querySelector('.field-error')?.remove();
+}
+function validateFields(rules) {
+  let ok = true;
+  rules.forEach(r => {
+    clearFieldError(r.id);
+    const el = document.getElementById(r.id);
+    if (!el) return;
+    const raw = el.value;
+    const val = typeof raw === 'string' ? raw.trim() : raw;
+    if (r.required && !val) {
+      showFieldError(r.id, `${r.label} is required.`); ok = false; return;
+    }
+    if (!val) return; // optional field left empty — skip further checks
+    if (r.minLen && val.length < r.minLen) {
+      showFieldError(r.id, `${r.label} must be at least ${r.minLen} characters.`); ok = false; return;
+    }
+    if (r.pattern && !r.pattern.test(val)) {
+      showFieldError(r.id, r.patternMsg || `${r.label} is invalid.`); ok = false; return;
+    }
+    if (r.min !== undefined || r.max !== undefined) {
+      const num = parseFloat(val);
+      if (isNaN(num)) { showFieldError(r.id, `${r.label} must be a number.`); ok = false; return; }
+      if (r.min !== undefined && num < r.min) { showFieldError(r.id, `${r.label} must be ≥ ${r.min}.`); ok = false; return; }
+      if (r.max !== undefined && num > r.max) { showFieldError(r.id, `${r.label} must be ≤ ${r.max}.`); ok = false; return; }
+    }
+    if (r.isDate && isNaN(new Date(val).getTime())) {
+      showFieldError(r.id, `${r.label} must be a valid date.`); ok = false; return;
+    }
+    if (r.afterField) {
+      const other = document.getElementById(r.afterField)?.value;
+      if (other && new Date(val) < new Date(other)) {
+        showFieldError(r.id, `${r.label} must be on or after ${r.afterFieldLabel || r.afterField}.`); ok = false; return;
+      }
+    }
+  });
+  return ok;
+}
+
 // ── Bootstrap ──────────────────────────────────────────────────
 // Load version from version.txt and populate About page
 fetch('version.txt')
@@ -39,6 +91,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Bill preview live listeners
   ['ub-startdate', 'ub-stopdate', 'ub-qty', 'ub-perday'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', updateBillPreview);
+  });
+
+  // Clear field errors on user input
+  [
+    'c-name','c-mobile',
+    'ec-name','ec-mobile',
+    'b-customer','b-startdate','b-qty','b-perday','b-arrears',
+    'ub-startdate','ub-stopdate','ub-qty','ub-perday','ub-collected','ub-arrears',
+    'mc-year','mc-projected-amount','mc-units-charged','mc-bill-paid-date',
+    'filter-year','bs-filter-year',
+  ].forEach(id => {
+    document.getElementById(id)?.addEventListener('input',  () => clearFieldError(id));
+    document.getElementById(id)?.addEventListener('change', () => clearFieldError(id));
   });
 
   setDateChip('today');
@@ -230,6 +295,10 @@ function filterCustomers() {
 
 async function submitAddCustomer(e) {
   e.preventDefault();
+  if (!validateFields([
+    { id: 'c-name',   label: 'Name',   required: true, minLen: 2 },
+    { id: 'c-mobile', label: 'Mobile', required: true, pattern: /^\d{10}$/, patternMsg: 'Enter a valid 10-digit mobile number.' },
+  ])) return;
   const body = {
     name:    document.getElementById('c-name').value.trim(),
     mobile:  document.getElementById('c-mobile').value.trim(),
@@ -269,6 +338,10 @@ function openEditCustomer(id) {
 
 async function submitEditCustomer(e) {
   e.preventDefault();
+  if (!validateFields([
+    { id: 'ec-name',   label: 'Name',   required: true, minLen: 2 },
+    { id: 'ec-mobile', label: 'Mobile', required: true, pattern: /^\d{10}$/, patternMsg: 'Enter a valid 10-digit mobile number.' },
+  ])) return;
   const id   = document.getElementById('ec-id').value;
   const body = {
     name:    document.getElementById('ec-name').value.trim(),
@@ -358,6 +431,13 @@ function setDateChip(chip) {
 
 async function submitAddBill(e) {
   e.preventDefault();
+  if (!validateFields([
+    { id: 'b-customer',  label: 'Customer',       required: true },
+    { id: 'b-startdate', label: 'Start Date',     required: true, isDate: true },
+    { id: 'b-qty',       label: 'Quantity',       required: true, min: 1, max: 999 },
+    { id: 'b-perday',    label: 'Per Day Charge', required: true, min: 1 },
+    { id: 'b-arrears',   label: 'Arrears',        min: 0 },
+  ])) return;
   const body = {
     customerId:   document.getElementById('b-customer').value,
     startDate:    document.getElementById('b-startdate').value,
@@ -429,6 +509,14 @@ function updateBillPreview() {
 
 async function submitUpdateBill(e) {
   e.preventDefault();
+  if (!validateFields([
+    { id: 'ub-startdate', label: 'Start Date',      required: true, isDate: true },
+    { id: 'ub-stopdate',  label: 'Stop Date',       isDate: true, afterField: 'ub-startdate', afterFieldLabel: 'Start Date' },
+    { id: 'ub-qty',       label: 'Quantity',        required: true, min: 1 },
+    { id: 'ub-perday',    label: 'Per Day Charge',  required: true, min: 1 },
+    { id: 'ub-collected', label: 'Collected Amount',min: 0 },
+    { id: 'ub-arrears',   label: 'Arrears',         min: 0 },
+  ])) return;
   const id   = document.getElementById('ub-id').value;
   const body = {
     startDate:       document.getElementById('ub-startdate').value,
@@ -786,6 +874,7 @@ let lastTrackerBills  = [];
 let trackerBillSort   = { col: null, asc: true };
 
 async function loadTrackerByBill() {
+  if (!validateFields([{ id: 'filter-year', label: 'Year', required: true, min: 2000, max: 2100 }])) return;
   const month = document.getElementById('filter-month').value;
   const year  = document.getElementById('filter-year').value;
   try {
@@ -907,6 +996,7 @@ function selectBSMonth(m) {
 }
 
 async function loadBalanceSheet() {
+  if (!validateFields([{ id: 'bs-filter-year', label: 'Year', required: true, min: 2000, max: 2100 }])) return;
   const month = document.getElementById('bs-filter-month').value;
   const year  = document.getElementById('bs-filter-year').value;
   try {
@@ -1194,6 +1284,12 @@ function openEditMonthlyCharge(id) {
 
 async function submitMonthlyCharge(e) {
   e.preventDefault();
+  if (!validateFields([
+    { id: 'mc-year',             label: 'Year',            required: true, min: 2000, max: 2100 },
+    { id: 'mc-projected-amount', label: 'Board Bill Amount',required: true, min: 0 },
+    { id: 'mc-units-charged',    label: 'Units Charged',   min: 0 },
+    { id: 'mc-bill-paid-date',   label: 'Bill Paid Date',  isDate: true },
+  ])) return;
   const id   = document.getElementById('mc-id').value;
   const body = {
     month:           parseInt(document.getElementById('mc-month').value),
