@@ -279,15 +279,17 @@ function renderCustomers(list) {
     const hasActive      = activeBills.length > 0;
     return `
       <div class="cust-card" onclick="openCustomerPage('${c.id}')">
-        <div class="cust-card-num">${idx + 1}</div>
-        <div class="cust-card-info">
-          <div class="cust-card-name">${esc(c.name)}</div>
-          <div class="cust-card-mobile">${esc(c.mobile)}</div>
-          <div class="cust-card-stats">
-            <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
-            <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
-            <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
-            <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+        <div class="cust-card-top">
+          <div class="cust-card-num">${idx + 1}</div>
+          <div class="cust-card-info">
+            <div class="cust-card-name">${esc(c.name)}</div>
+            <div class="cust-card-mobile">${esc(c.mobile)}</div>
+            <div class="cust-card-stats">
+              <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
+              <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
+              <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
+              <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+            </div>
           </div>
         </div>
         <div class="cust-card-actions" onclick="event.stopPropagation()">
