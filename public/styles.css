@@ -94,6 +94,8 @@ body {
 .btn-danger    { background: var(--danger); color: #fff; }
 .btn-danger:hover    { background: #b91c1c; }
 .btn-icon   { padding: .35rem .6rem; font-size: .8rem; border-radius: 6px; }
+.btn-call   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.btn-call:hover  { background: #dcfce7; }
 .btn-edit   { background: #eff6ff; color: var(--primary);  border: 1px solid #bfdbfe; }
 .btn-edit:hover  { background: #dbeafe; }
 .btn-del    { background: #fef2f2; color: var(--danger);   border: 1px solid #fecaca; }

@@ -87,6 +87,7 @@ function renderCustomers(list) {
         <div class="cust-card-mobile">${esc(c.mobile)}</div>
       </div>
       <div class="cust-card-actions" onclick="event.stopPropagation()">
+        <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
         <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
         <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
       </div>
