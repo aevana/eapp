@@ -114,20 +114,13 @@
       <div class="section-header">
         <h2>Tracker</h2>
         <div class="tracker-tabs">
-          <button class="tracker-tab active" data-tracker="by-customer" onclick="switchTracker('by-customer')">By Customer</button>
-          <button class="tracker-tab" data-tracker="by-bill" onclick="switchTracker('by-bill')">By Month / Year</button>
+          <button class="tracker-tab active" data-tracker="by-bill" onclick="switchTracker('by-bill')">By Month / Year</button>
           <button class="tracker-tab" data-tracker="balance-sheet" onclick="switchTracker('balance-sheet')">📒 Balance Sheet</button>
         </div>
       </div>
 
-      <!-- ─── By Customer ─── -->
-      <div id="tracker-by-customer" class="tracker-panel active">
-        <p class="hint">Click on a customer row to expand their bills. Use 📱 WhatsApp to send a payment reminder to active customers.</p>
-        <div id="tracker-customer-list"></div>
-      </div>
-
       <!-- ─── By Month/Year ─── -->
-      <div id="tracker-by-bill" class="tracker-panel">
+      <div id="tracker-by-bill" class="tracker-panel active">
         <div class="month-filter">
           <label>Month</label>
           <select id="filter-month">

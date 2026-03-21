@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-      if (btn.dataset.tab === 'tracker') loadTrackerByCustomer();
       if (btn.dataset.tab === 'settings') loadSettings();
     });
   });
@@ -43,9 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   setDateChip('today');
-  loadCustomers();
+  loadCustomers(); // also populates trackerData
   loadBills();
-  loadTrackerByCustomer();
 });
 
 // ── API helper — routes to localStorage DB (works offline / in APK) ──
@@ -61,7 +59,6 @@ function switchTracker(type) {
   document.querySelectorAll('.tracker-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`.tracker-tab[data-tracker="${type}"]`).classList.add('active');
   document.getElementById(`tracker-${type}`).classList.add('active');
-  if (type === 'by-customer') loadTrackerByCustomer();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -70,8 +67,9 @@ function switchTracker(type) {
 
 async function loadCustomers() {
   try {
-    allCustomers = await apiFetch('/api/customers');
-    renderCustomers(allCustomers);
+    trackerData  = await apiFetch('/api/tracker/customers');
+    allCustomers = trackerData.map(({ bills, ...c }) => c);
+    renderCustomers(trackerData);
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -81,19 +79,34 @@ function renderCustomers(list) {
     grid.innerHTML = '<p class="empty-row">No customers found.</p>';
     return;
   }
-  grid.innerHTML = list.map(c => `
-    <div class="cust-card" onclick="openCustomerPage('${c.id}')">
-      <div class="cust-card-info">
-        <div class="cust-card-name">${esc(c.name)}</div>
-        <div class="cust-card-mobile">${esc(c.mobile)}</div>
+  grid.innerHTML = list.map((c, idx) => {
+    const bills          = c.bills || [];
+    const activeBills    = bills.filter(b => b.status === 'active');
+    const totalPending   = bills.reduce((s, b) => s + (b.pendingAmount   || 0), 0);
+    const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
+    const hasActive      = activeBills.length > 0;
+    return `
+      <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+        <div class="cust-card-num">${idx + 1}</div>
+        <div class="cust-card-info">
+          <div class="cust-card-name">${esc(c.name)}</div>
+          <div class="cust-card-mobile">${esc(c.mobile)}</div>
+          <div class="cust-card-stats">
+            <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
+            <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
+            <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
+            <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+          </div>
+        </div>
+        <div class="cust-card-actions" onclick="event.stopPropagation()">
+          ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+          <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
+          <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
+          <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
+        </div>
       </div>
-      <div class="cust-card-actions" onclick="event.stopPropagation()">
-        <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
-        <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
-        <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // ── Customer Detail Page ──────────────────────────────────────
@@ -211,7 +224,7 @@ function sendWhatsAppBillReminderFromDetail(customerId, billId) {
 
 function filterCustomers() {
   const q = document.getElementById('customer-search').value.toLowerCase();
-  renderCustomers(allCustomers.filter(c => c.name.toLowerCase().includes(q) || c.mobile.includes(q)));
+  renderCustomers(trackerData.filter(c => c.name.toLowerCase().includes(q) || c.mobile.includes(q)));
 }
 
 async function submitAddCustomer(e) {
@@ -487,107 +500,14 @@ async function doStopBill(id) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  TRACKER – By Customer  (with WhatsApp reminder)
-// ══════════════════════════════════════════════════════════════
-
+// ── Refresh tracker data and re-render customer cards ─────────
 async function loadTrackerByCustomer() {
   try {
-    trackerData = await apiFetch('/api/tracker/customers');
-    renderTrackerByCustomer(trackerData);
-  } catch (e) {
-    document.getElementById('tracker-customer-list').innerHTML =
-      '<p class="hint">Failed to load tracker data.</p>';
-  }
-}
-
-function renderTrackerByCustomer(data) {
-  const container = document.getElementById('tracker-customer-list');
-  if (!data.length) {
-    container.innerHTML = '<p class="hint">No customers found.</p>';
-    return;
-  }
-
-  container.innerHTML = data.map(c => {
-    const activeBills    = c.bills.filter(b => b.status === 'active');
-    const totalPending   = c.bills.reduce((s, b) => s + (b.pendingAmount   || 0), 0);
-    const totalCollected = c.bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
-    const hasActive      = activeBills.length > 0;
-
-    return `
-      <div class="tracker-customer-card" id="tcard-${c.id}">
-        <div class="tracker-customer-header" onclick="toggleCustomerCard('${c.id}')">
-          <div>
-            <div class="tracker-customer-name">
-              ${esc(c.name)}
-              <span style="font-weight:400;font-size:.85rem;color:#64748b;">· ${esc(c.mobile)}</span>
-            </div>
-            <div class="tracker-customer-meta">
-              ${c.bills.length} bill(s) · ${activeBills.length} active
-              · ₹${totalPending.toLocaleString()} pending
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:.6rem;">
-            ${hasActive ? `
-              <button class="btn btn-whatsapp" title="Send WhatsApp reminder"
-                onclick="event.stopPropagation(); sendWhatsAppReminder('${c.id}')">
-                📱 WhatsApp
-              </button>` : ''}
-            <span class="tracker-chevron">▼</span>
-          </div>
-        </div>
-
-        <div class="tracker-customer-body">
-          <div class="tracker-stats">
-            <span>Bills: <strong>${c.bills.length}</strong></span>
-            <span>Active: <strong>${activeBills.length}</strong></span>
-            <span>Collected: <strong>₹${totalCollected.toLocaleString()}</strong></span>
-            <span>Pending: <strong style="color:var(--danger)">₹${totalPending.toLocaleString()}</strong></span>
-          </div>
-          <div class="table-wrap" style="border:none;box-shadow:none;border-radius:0;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>#</th><th>Start</th><th>Stop</th><th>Days</th>
-                  <th>Qty</th><th>Per Day</th><th>Total</th>
-                  <th>Collected</th><th>Pending</th><th>Status</th><th>Remind</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${c.bills.map((b, i) => `
-                  <tr>
-                    <td>${i + 1}</td>
-                    <td>${fmtDate(b.startDate)}</td>
-                    <td>${b.stopDate ? fmtDate(b.stopDate) : '—'}</td>
-                    <td>${b.numberOfDays ?? '—'}</td>
-                    <td>${b.quantity}</td>
-                    <td>₹${b.perDayCharge}</td>
-                    <td>₹${(b.total ?? 0).toLocaleString()}</td>
-                    <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
-                    <td style="color:var(--danger);font-weight:600;">
-                      ₹${(b.pendingAmount ?? 0).toLocaleString()}
-                    </td>
-                    <td><span class="badge badge-${b.status}">${b.status}</span></td>
-                    <td>
-                      ${b.status === 'active' ? `
-                        <button class="btn btn-whatsapp btn-icon"
-                          title="Remind via WhatsApp"
-                          onclick="sendWhatsAppBillReminder('${c.id}', '${b.id}')">
-                          📱
-                        </button>` : '—'}
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function toggleCustomerCard(id) {
-  document.getElementById(`tcard-${id}`)?.classList.toggle('expanded');
+    trackerData  = await apiFetch('/api/tracker/customers');
+    allCustomers = trackerData.map(({ bills, ...c }) => c);
+    const listView = document.getElementById('customer-list-view');
+    if (listView && listView.style.display !== 'none') renderCustomers(trackerData);
+  } catch (e) { /* silent — customers already rendered */ }
 }
 
 // ── Settings helpers ──────────────────────────────────────────

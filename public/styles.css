@@ -732,9 +732,9 @@ body {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 1rem 1.1rem;
+  padding: .85rem 1rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: .75rem;
   cursor: pointer;
@@ -745,24 +745,61 @@ body {
   border-color: var(--primary-light);
   transform: translateY(-2px);
 }
+.cust-card-num {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: .8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 .cust-card-info { flex: 1; min-width: 0; }
 .cust-card-name {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: .97rem;
   color: var(--gray-900);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cust-card-mobile {
-  font-size: .85rem;
+  font-size: .82rem;
   color: var(--gray-500);
-  margin-top: 3px;
+  margin-top: 2px;
 }
+.cust-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .75rem;
+  margin-top: .55rem;
+}
+.cstat {
+  display: flex;
+  flex-direction: column;
+  font-size: .72rem;
+  line-height: 1.3;
+}
+.cstat span { color: var(--gray-500); text-transform: uppercase; letter-spacing: .02em; }
+.cstat strong { font-size: .82rem; color: var(--gray-800); }
+.cstat-active strong { color: #16a34a; }
+.cstat-pending strong { color: var(--danger); }
+.cstat-collected strong { color: #0ea5e9; }
 .cust-card-actions {
   display: flex;
-  gap: .35rem;
+  flex-direction: column;
+  gap: .3rem;
   flex-shrink: 0;
+  align-items: flex-end;
+}
+/* Row layout for actions when there's space */
+@media (min-width: 420px) {
+  .cust-card-actions { flex-direction: row; align-items: flex-start; }
 }
 
 /* ── Customer detail header ── */
