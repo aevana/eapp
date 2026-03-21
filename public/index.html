@@ -162,24 +162,39 @@
 
         <!-- Filter + action row -->
         <div class="bs-toolbar">
-          <div class="month-filter">
-            <label>Month</label>
-            <select id="bs-filter-month">
-              <option value="1">January</option><option value="2">February</option>
-              <option value="3">March</option><option value="4">April</option>
-              <option value="5">May</option><option value="6">June</option>
-              <option value="7">July</option><option value="8">August</option>
-              <option value="9">September</option><option value="10">October</option>
-              <option value="11">November</option><option value="12">December</option>
-            </select>
-            <label>Year</label>
-            <input type="number" id="bs-filter-year" value="2025" min="2000" max="2100" />
+
+          <!-- Year → Month chips → View -->
+          <div class="bs-filter-block">
+            <div class="bs-year-row">
+              <label class="bs-year-label">Year</label>
+              <input type="number" id="bs-filter-year" value="2025" min="2000" max="2100" class="bs-year-input" />
+            </div>
+            <input type="hidden" id="bs-filter-month" value="1" />
+            <div class="bs-month-chips" id="bs-month-chips">
+              <button type="button" class="month-chip" data-month="1"  onclick="selectBSMonth(1)">Jan</button>
+              <button type="button" class="month-chip" data-month="2"  onclick="selectBSMonth(2)">Feb</button>
+              <button type="button" class="month-chip" data-month="3"  onclick="selectBSMonth(3)">Mar</button>
+              <button type="button" class="month-chip" data-month="4"  onclick="selectBSMonth(4)">Apr</button>
+              <button type="button" class="month-chip" data-month="5"  onclick="selectBSMonth(5)">May</button>
+              <button type="button" class="month-chip" data-month="6"  onclick="selectBSMonth(6)">Jun</button>
+              <button type="button" class="month-chip" data-month="7"  onclick="selectBSMonth(7)">Jul</button>
+              <button type="button" class="month-chip" data-month="8"  onclick="selectBSMonth(8)">Aug</button>
+              <button type="button" class="month-chip" data-month="9"  onclick="selectBSMonth(9)">Sep</button>
+              <button type="button" class="month-chip" data-month="10" onclick="selectBSMonth(10)">Oct</button>
+              <button type="button" class="month-chip" data-month="11" onclick="selectBSMonth(11)">Nov</button>
+              <button type="button" class="month-chip" data-month="12" onclick="selectBSMonth(12)">Dec</button>
+            </div>
             <button class="btn btn-primary" onclick="loadBalanceSheet()">View</button>
           </div>
-          <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
-          <button class="btn btn-secondary" onclick="exportMonthlyChargesCSV()">📥 Export CSV</button>
-          <button class="btn btn-secondary" onclick="importCSVFile('monthly-charges')">📤 Import CSV</button>
-          <input type="file" id="csv-import-monthly-charges" accept=".csv" style="display:none" onchange="handleCSVImport(event,'monthly-charges')" />
+
+          <!-- Action buttons -->
+          <div class="bs-toolbar-actions">
+            <button class="btn btn-secondary" onclick="openAddMonthlyChargeModal()">+ Add / Edit Monthly Charge</button>
+            <button class="btn btn-secondary" onclick="exportMonthlyChargesCSV()">📥 Export CSV</button>
+            <button class="btn btn-secondary" onclick="importCSVFile('monthly-charges')">📤 Import CSV</button>
+            <input type="file" id="csv-import-monthly-charges" accept=".csv" style="display:none" onchange="handleCSVImport(event,'monthly-charges')" />
+          </div>
+
         </div>
 
         <!-- Revenue hero card -->

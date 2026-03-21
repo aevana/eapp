@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   document.getElementById('filter-month').value    = now.getMonth() + 1;
   document.getElementById('filter-year').value     = now.getFullYear();
-  document.getElementById('bs-filter-month').value = now.getMonth() + 1;
   document.getElementById('bs-filter-year').value  = now.getFullYear();
+  selectBSMonth(now.getMonth() + 1);
 
   // Bill preview live listeners
   ['ub-startdate', 'ub-stopdate', 'ub-qty', 'ub-perday'].forEach(id => {
@@ -898,6 +898,13 @@ const MONTH_NAMES = [
   '', 'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ];
+
+function selectBSMonth(m) {
+  document.getElementById('bs-filter-month').value = m;
+  document.querySelectorAll('#bs-month-chips .month-chip').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.month) === m);
+  });
+}
 
 async function loadBalanceSheet() {
   const month = document.getElementById('bs-filter-month').value;

@@ -302,8 +302,38 @@ body {
 
 /* toolbar */
 .bs-toolbar {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem;
+  display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.25rem;
+}
+.bs-filter-block {
+  display: flex; flex-direction: column; gap: .65rem;
+}
+.bs-year-row {
+  display: flex; align-items: center; gap: .6rem;
+}
+.bs-year-label {
+  font-weight: 600; font-size: .875rem; color: var(--gray-700); white-space: nowrap;
+}
+.bs-year-input {
+  width: 100px; padding: .45rem .7rem;
+  border: 1px solid var(--gray-300); border-radius: var(--radius);
+  font-size: .9rem; color: var(--gray-800);
+}
+.bs-month-chips {
+  display: flex; flex-wrap: wrap; gap: .4rem;
+}
+.month-chip {
+  padding: .35rem .7rem; border-radius: 20px;
+  border: 1px solid var(--gray-300); background: var(--gray-100);
+  font-size: .8rem; font-weight: 600; color: var(--gray-700);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.month-chip:hover:not(.active) { background: var(--gray-200); border-color: var(--gray-400); }
+.month-chip.active {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+  box-shadow: 0 2px 6px rgba(30,64,175,.25);
+}
+.bs-toolbar-actions {
+  display: flex; flex-wrap: wrap; gap: .5rem;
 }
 
 /* Revenue hero card */
