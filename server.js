@@ -53,6 +53,40 @@ function enrichBill(bill, customers) {
   };
 }
 
+// Variant of enrichBill that clips the bill's active days to within the given
+// month only — used by Tracker by-month and Balance Sheet so that a bill
+// spanning multiple months only shows the days/cost relevant to that month.
+function enrichBillForMonth(bill, customers, month, year) {
+  const customer = customers.find(c => c.id === bill.customerId);
+
+  const toDate = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
+  const mStart     = new Date(year, month - 1, 1);           // first day of month
+  const mEnd       = new Date(year, month, 0);               // last day of month
+  const daysInMonth = mEnd.getDate();
+
+  const billStartD = toDate(bill.startDate);
+  const billStopD  = bill.stopDate ? toDate(bill.stopDate) : toDate(new Date());
+
+  const clippedStart = billStartD > mStart ? billStartD : mStart;
+  const clippedStop  = billStopD  < mEnd   ? billStopD  : mEnd;
+
+  const days = clippedStop >= clippedStart
+    ? Math.min(Math.round((clippedStop - clippedStart) / 86400000) + 1, daysInMonth)
+    : 0;
+
+  const total   = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
+  const arrears = bill.arrears || 0;
+  const pending = Math.max(0, total + arrears - (bill.collectedAmount || 0));
+  return {
+    ...bill,
+    customerName:   customer ? customer.name   : 'Unknown',
+    customerMobile: customer ? customer.mobile : '',
+    numberOfDays:   days,
+    total,
+    pendingAmount:  pending,
+  };
+}
+
 // ── Bill overlaps a given month/year ──────────────────────────
 function billOverlapsMonth(bill, month, year) {
   const start  = new Date(bill.startDate);
@@ -178,7 +212,7 @@ app.get('/api/tracker/by-month', (req, res) => {
   const customers = readCustomers();
   const bills     = readJSON(BILLS_FILE)
     .filter(b => billOverlapsMonth(b, month, year))
-    .map(b => enrichBill(b, customers));
+    .map(b => enrichBillForMonth(b, customers, month, year));
 
   const totalBills     = bills.length;
   const totalCharged   = bills.reduce((s, b) => s + (b.total || 0), 0);
@@ -253,43 +287,48 @@ app.get('/api/balance-sheet', (req, res) => {
   const customers = readCustomers();
   const bills     = readJSON(BILLS_FILE)
     .filter(b => billOverlapsMonth(b, month, year))
-    .map(b => enrichBill(b, customers));
+    .map(b => enrichBillForMonth(b, customers, month, year));
 
   const charges   = readJSON(CHARGES_FILE);
   const monthlyCharge = charges.find(c => c.month === month && c.year === year) || null;
 
-  // Bill-side aggregates
+  // Bill-side aggregates (all based on the month-clipped values)
   const totalCharged   = bills.reduce((s, b) => s + (b.total || 0), 0);
   const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
   const totalPending   = bills.reduce((s, b) => s + (b.pendingAmount  || 0), 0);
   const totalActiveQty = bills.reduce((s, b) => s + (b.quantity || 0), 0);
+  const totalArrears   = bills.reduce((s, b) => s + (b.arrears || 0), 0);
 
   // Unit projection: each qty set consumes avg 22.5 units/month
   const AVG_UNITS_PER_QTY = 22.5;
   const unitsProjected = Math.round(totalActiveQty * AVG_UNITS_PER_QTY);
   const unitsCharged   = monthlyCharge ? (monthlyCharge.unitsCharged || 0) : 0;
 
-  // Revenue = what we collected from customers minus what we paid the board
   const projectedAmount = monthlyCharge ? (monthlyCharge.projectedAmount || 0) : 0;
-  const revenue         = totalCollected - projectedAmount;
+  // Expected profit: what we should earn if everyone pays (total billed + arrears − board bill)
+  const expectedProfit  = totalCharged + totalArrears - projectedAmount;
+  // Actual profit: what we actually received minus what we paid the board
+  const actualProfit    = totalCollected - projectedAmount;
 
   res.json({
     month, year,
     bills,
     monthlyCharge,
     summary: {
-      totalBills:      bills.length,
-      totalCharged,      // billed to customers
+      totalBills:    bills.length,
+      totalCharged,
       totalCollected,
       totalPending,
       totalActiveQty,
+      totalArrears,
     },
     stats: {
-      unitsProjected,      // estimated from qty × 22.5
-      unitsCharged,        // actual from board bill
-      unitsDiff: unitsCharged - unitsProjected,
-      projectedAmount,     // board bill amount
-      revenue,             // totalCollected - projectedAmount
+      unitsProjected,
+      unitsCharged,
+      unitsDiff:      unitsCharged - unitsProjected,
+      projectedAmount,
+      expectedProfit,
+      actualProfit,
       collectionRate: totalCharged > 0 ? Math.round((totalCollected / totalCharged) * 100) : 0,
     },
   });

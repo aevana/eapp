@@ -62,6 +62,33 @@ const DB = (() => {
     return start <= mEnd && stop >= mStart;
   }
 
+  // Clips bill active days to the selected month only.
+  function enrichBillForMonth(bill, customers, month, year) {
+    const customer = customers.find(c => c.id === bill.customerId);
+    const toDate = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
+    const mStart     = new Date(year, month - 1, 1);
+    const mEnd       = new Date(year, month, 0);
+    const daysInMonth = mEnd.getDate();
+    const billStartD = toDate(bill.startDate);
+    const billStopD  = bill.stopDate ? toDate(bill.stopDate) : toDate(new Date());
+    const clippedStart = billStartD > mStart ? billStartD : mStart;
+    const clippedStop  = billStopD  < mEnd   ? billStopD  : mEnd;
+    const days = clippedStop >= clippedStart
+      ? Math.min(Math.round((clippedStop - clippedStart) / 86400000) + 1, daysInMonth)
+      : 0;
+    const total   = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
+    const arrears = bill.arrears || 0;
+    const pending = Math.max(0, total + arrears - (bill.collectedAmount || 0));
+    return {
+      ...bill,
+      customerName:   customer ? customer.name   : 'Unknown',
+      customerMobile: customer ? customer.mobile : '',
+      numberOfDays:   days,
+      total,
+      pendingAmount:  pending,
+    };
+  }
+
   // ══════════════════════════════════════════════════════════════
   //  CUSTOMERS
   // ══════════════════════════════════════════════════════════════
@@ -171,7 +198,7 @@ const DB = (() => {
     const customers = readCustomers();
     const bills = read(KEYS.bills)
       .filter(b => billOverlapsMonth(b, m, y))
-      .map(b => enrichBill(b, customers));
+      .map(b => enrichBillForMonth(b, customers, m, y));
     const totalBills     = bills.length;
     const totalCharged   = bills.reduce((s, b) => s + (b.total || 0), 0);
     const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
@@ -235,13 +262,13 @@ const DB = (() => {
   //  BALANCE SHEET
   // ══════════════════════════════════════════════════════════════
 
-  function getBalanceSheet(month, year) {
+  function getBalanceSheet(month, year, unitsPerDay) {
     const m = parseInt(month), y = parseInt(year);
     if (!m || !y) throw new Error('month and year required');
     const customers = readCustomers();
     const bills = read(KEYS.bills)
       .filter(b => billOverlapsMonth(b, m, y))
-      .map(b => enrichBill(b, customers));
+      .map(b => enrichBillForMonth(b, customers, m, y));
     const charges = read(KEYS.charges);
     const monthlyCharge = charges.find(c => c.month === m && c.year === y) || null;
 
@@ -249,25 +276,29 @@ const DB = (() => {
     const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
     const totalPending   = bills.reduce((s, b) => s + (b.pendingAmount  || 0), 0);
     const totalActiveQty = bills.reduce((s, b) => s + (b.quantity || 0), 0);
+    const totalArrears   = bills.reduce((s, b) => s + (b.arrears || 0), 0);
 
-    const AVG_UNITS_PER_QTY = 22.5;
-    const unitsProjected  = Math.round(totalActiveQty * AVG_UNITS_PER_QTY);
+    const UNITS_PER_DAY  = parseInt(unitsPerDay) === 25 ? 25 : 20;
+    const totalBillDays  = bills.reduce((s, b) => s + ((b.numberOfDays || 0) * (b.quantity || 1)), 0);
+    const unitsProjected = totalBillDays * UNITS_PER_DAY;
     const unitsCharged    = monthlyCharge ? (monthlyCharge.unitsCharged || 0) : 0;
     const projectedAmount = monthlyCharge ? (monthlyCharge.projectedAmount || 0) : 0;
-    const revenue         = totalCollected - projectedAmount;
+    const expectedProfit  = totalCharged + totalArrears - projectedAmount;
+    const actualProfit    = totalCollected - projectedAmount;
 
     return {
       month: m, year: y,
       bills,
       monthlyCharge,
-      summary: { totalBills: bills.length, totalCharged, totalCollected, totalPending, totalActiveQty },
+      summary: { totalBills: bills.length, totalCharged, totalCollected, totalPending, totalActiveQty, totalArrears },
       stats: {
         unitsProjected,
         unitsCharged,
-        unitsDiff:        unitsCharged - unitsProjected,
+        unitsDiff:      unitsCharged - unitsProjected,
         projectedAmount,
-        revenue,
-        collectionRate:   totalCharged > 0 ? Math.round((totalCollected / totalCharged) * 100) : 0,
+        expectedProfit,
+        actualProfit,
+        collectionRate: totalCharged > 0 ? Math.round((totalCollected / totalCharged) * 100) : 0,
       },
     };
   }
@@ -311,7 +342,7 @@ const DB = (() => {
         break;
 
       case 'balance-sheet':
-        return getBalanceSheet(params.month, params.year);
+        return getBalanceSheet(params.month, params.year, params.unitsPerDay);
     }
     throw new Error(`Unknown route: ${method} ${url}`);
   }

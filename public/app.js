@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     'c-name','c-mobile',
     'ec-name','ec-mobile',
     'b-customer','b-startdate','b-qty','b-perday','b-arrears',
-    'ub-startdate','ub-stopdate','ub-qty','ub-perday','ub-collected','ub-arrears',
+    'ub-startdate','ub-stopdate','ub-qty','ub-perday','ub-collected','ub-collecteddate','ub-arrears',
     'mc-year','mc-projected-amount','mc-units-charged','mc-bill-paid-date',
     'filter-year','bs-filter-year',
   ].forEach(id => {
@@ -165,7 +165,10 @@ function switchTracker(type) {
 
 async function loadHome() {
   try {
-    const data = await apiFetch('/api/tracker/customers');   // same as loadCustomers uses
+    const [data, charges] = await Promise.all([
+      apiFetch('/api/tracker/customers'),
+      apiFetch('/api/monthly-charges'),
+    ]);
 
     // ── compute totals
     let totalPending = 0, totalCollected = 0, runningCount = 0;
@@ -183,11 +186,14 @@ async function loadHome() {
       });
     });
 
+    const totalChargesPaid = charges.reduce((s, c) => s + (c.projectedAmount || 0), 0);
+
     // ── stat row
-    document.getElementById('hs-val-customers').textContent  = data.length;
-    document.getElementById('hs-val-running').textContent    = runningCount;
-    document.getElementById('hs-val-pending').textContent    = '₹' + totalPending.toLocaleString();
-    document.getElementById('hs-val-collected').textContent  = '₹' + totalCollected.toLocaleString();
+    document.getElementById('hs-val-customers').textContent    = data.length;
+    document.getElementById('hs-val-running').textContent      = runningCount;
+    document.getElementById('hs-val-pending').textContent      = '₹' + totalPending.toLocaleString();
+    document.getElementById('hs-val-collected').textContent    = '₹' + totalCollected.toLocaleString();
+    document.getElementById('hs-val-charges-paid').textContent = '₹' + totalChargesPaid.toLocaleString();
     document.getElementById('hs-running-badge').textContent  = runningCount;
 
     // ── running set cards
@@ -252,6 +258,7 @@ function switchToCustomer(id) {
   document.getElementById('tab-customers').classList.add('active');
   openCustomerPage(id);
 }
+
 
 // ══════════════════════════════════════════════════════════════
 //  CUSTOMERS
@@ -358,6 +365,7 @@ function renderCustomerPage(customer, bills) {
           <div class="cbill-stat"><span>Total</span><strong>₹${(b.total ?? 0).toLocaleString()}</strong></div>
           <div class="cbill-stat"><span>Arrears</span><strong style="color:${(b.arrears ?? 0) > 0 ? 'var(--warning,#f59e0b)' : 'inherit'}">₹${(b.arrears ?? 0).toLocaleString()}</strong></div>
           <div class="cbill-stat"><span>Collected</span><strong style="color:var(--success)">₹${(b.collectedAmount ?? 0).toLocaleString()}</strong></div>
+          ${b.collectedDate ? `<div class="cbill-stat"><span>Collected Date</span><strong>${fmtDate(b.collectedDate)}</strong></div>` : ''}
           <div class="cbill-stat"><span>Pending</span><strong style="color:${b.pendingAmount > 0 ? 'var(--danger)' : 'inherit'}">₹${(b.pendingAmount ?? 0).toLocaleString()}</strong></div>
         </div>
         ${b.comments ? `<div class="cbill-comments">💬 ${esc(b.comments)}</div>` : ''}
@@ -489,6 +497,13 @@ async function submitEditCustomer(e) {
 //  BILLS
 // ══════════════════════════════════════════════════════════════
 
+function setBillStatusFilter(btn) {
+  document.querySelectorAll('.status-toggle-group .status-toggle').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('bill-filter-status').value = btn.dataset.status;
+  loadBills();
+}
+
 async function loadBills() {
   const status = document.getElementById('bill-filter-status').value;
   try {
@@ -516,6 +531,7 @@ function renderBills(bills) {
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>${(b.arrears ?? 0) > 0 ? `<span style="color:#f59e0b;font-weight:600">₹${(b.arrears).toLocaleString()}</span>` : '—'}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>${b.collectedDate ? fmtDate(b.collectedDate) : '—'}</td>
       <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
       <td style="max-width:120px;font-size:.8rem;color:#64748b;">${esc(b.comments || '—')}</td>
@@ -615,9 +631,10 @@ function openUpdateBill(id) {
   document.getElementById('ub-stopdate').value   = b.stopDate  || '';
   document.getElementById('ub-qty').value        = b.quantity;
   document.getElementById('ub-perday').value     = b.perDayCharge;
-  document.getElementById('ub-collected').value  = b.collectedAmount || 0;
-  document.getElementById('ub-arrears').value    = b.arrears || 0;
-  document.getElementById('ub-comments').value   = b.comments || '';
+  document.getElementById('ub-collected').value      = b.collectedAmount || 0;
+  document.getElementById('ub-collecteddate').value  = b.collectedDate || toDateStr(new Date());
+  document.getElementById('ub-arrears').value        = b.arrears || 0;
+  document.getElementById('ub-comments').value       = b.comments || '';
   openModal('modal-update-bill');
   updateBillPreview();
 }
@@ -664,6 +681,7 @@ async function submitUpdateBill(e) {
     quantity:        parseInt(document.getElementById('ub-qty').value),
     perDayCharge:    parseInt(document.getElementById('ub-perday').value),
     collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
+    collectedDate:   document.getElementById('ub-collecteddate').value || null,
     arrears:         parseFloat(document.getElementById('ub-arrears').value) || 0,
     comments:        document.getElementById('ub-comments').value.trim(),
   };
@@ -928,46 +946,73 @@ function showBillImageModal(mobile, data) {
 
   const clean = (mobile || '').replace(/\D/g, '');
 
-  // Convert canvas to a File synchronously so navigator.share() is called
-  // within the user-gesture context (toBlob() is async and loses that context
-  // on Android WebView, causing share to be silently blocked).
-  function canvasToFile(name) {
-    const dataUrl = cvs.toDataURL('image/png');
-    const b64 = dataUrl.split(',')[1];
+  // Share/download a canvas image using the most reliable method available.
+  // Priority: Capacitor native plugins → Web Share API → anchor-click fallback.
+  async function shareCanvasImage(filename, forWhatsApp) {
+    const dataUrl  = cvs.toDataURL('image/png');
+    const FS       = window.Capacitor?.Plugins?.Filesystem;
+    const SharePl  = window.Capacitor?.Plugins?.Share;
+
+    // 1. Native Capacitor path — works on all Android versions reliably.
+    if (FS && SharePl) {
+      try {
+        const { uri } = await FS.writeFile({
+          path: filename,
+          data: dataUrl.split(',')[1],   // base64 portion only
+          directory: 'CACHE',
+        });
+
+        if (forWhatsApp && clean) {
+          // Share mode: include customer name + number in the share text so
+          // WhatsApp pre-fills the message. After sharing, open WhatsApp
+          // directly to the customer's chat so the user can send it instantly.
+          await SharePl.share({
+            files: [uri],
+            title: 'Electricity Bill',
+            text: (data.name || '') + (clean ? '\n📞 ' + clean : ''),
+            dialogTitle: 'Send bill to ' + (data.name || 'customer'),
+          });
+          // Open the customer's WhatsApp chat (1 s delay lets the share
+          // intent land in WhatsApp before the deep-link navigates to the chat).
+          setTimeout(() => window.open('whatsapp://send?phone=91' + clean, '_system'), 1000);
+        } else {
+          // Download mode: plain file share, no WhatsApp context.
+          await SharePl.share({ files: [uri], title: 'Electricity Bill' });
+        }
+        return;
+      } catch (e) {
+        // AbortError / user cancelled — do not fall through to another UI action.
+        if (e.errorMessage?.toLowerCase().includes('cancel') ||
+            e.message?.toLowerCase().includes('cancel') ||
+            e.name === 'AbortError') return;
+        // Otherwise fall through to Web Share API below.
+      }
+    }
+
+    // 2. Web Share API with file support (requires Android 10+ Chrome WebView).
+    const b64   = dataUrl.split(',')[1];
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    return new File([bytes], name, { type: 'image/png' });
+    const file  = new File([bytes], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+
+    // 3. Desktop / PWA anchor-click fallback.
+    const a = document.createElement('a');
+    a.download = filename;
+    a.href = dataUrl;
+    a.click();
+    if (forWhatsApp && clean) {
+      setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
+    }
   }
 
-  document.getElementById('bill-img-download').onclick = async () => {
-    const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-    // On Android WebView, anchor-click downloads are silently ignored.
-    // Use Web Share API (works in Capacitor WebView) to let user save to Downloads.
-    if (navigator.share) {
-      const file = canvasToFile(filename);
-      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
-    }
-    // Desktop fallback
-    const a = document.createElement('a');
-    a.download = filename;
-    a.href = cvs.toDataURL('image/png');
-    a.click();
-  };
+  document.getElementById('bill-img-download').onclick = () =>
+    shareCanvasImage('bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png', false);
 
-  document.getElementById('bill-img-share').onclick = async () => {
-    const filename = 'electricity-bill.png';
-    if (navigator.share) {
-      const file = canvasToFile(filename);
-      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
-    }
-    // Desktop fallback: download image then open WhatsApp
-    const a = document.createElement('a');
-    a.download = filename;
-    a.href = cvs.toDataURL('image/png');
-    a.click();
-    if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
-  };
+  document.getElementById('bill-img-share').onclick = () =>
+    shareCanvasImage('electricity-bill.png', true);
 
   openModal('modal-bill-image');
 }
@@ -1158,6 +1203,7 @@ function renderTrackerBills(bills) {
       <td>₹${b.perDayCharge}</td>
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>${b.collectedDate ? fmtDate(b.collectedDate) : '—'}</td>
       <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
     </tr>
@@ -1180,12 +1226,20 @@ function selectBSMonth(m) {
   });
 }
 
+function selectUnitsPerDay(n) {
+  document.getElementById('bs-units-per-day').value = n;
+  document.querySelectorAll('.bs-units-toggle .toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.units) === n);
+  });
+}
+
 async function loadBalanceSheet() {
   if (!validateFields([{ id: 'bs-filter-year', label: 'Year', required: true, min: 2000, max: 2100 }])) return;
-  const month = document.getElementById('bs-filter-month').value;
-  const year  = document.getElementById('bs-filter-year').value;
+  const month       = document.getElementById('bs-filter-month').value;
+  const year        = document.getElementById('bs-filter-year').value;
+  const unitsPerDay = document.getElementById('bs-units-per-day').value || 20;
   try {
-    lastBSData = await apiFetch(`/api/balance-sheet?month=${month}&year=${year}`);
+    lastBSData = await apiFetch(`/api/balance-sheet?month=${month}&year=${year}&unitsPerDay=${unitsPerDay}`);
     renderBalanceSheet(lastBSData);
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1195,18 +1249,42 @@ function renderBalanceSheet(data) {
   const label = `${MONTH_NAMES[month]} ${year}`;
   const hasCharge = !!monthlyCharge;
 
-  // ─── Revenue hero ────────────────────────────────────────────
-  const revenueClass = stats.revenue >= 0 ? 'bs-revenue-profit' : 'bs-revenue-loss';
-  const revenueLabel = stats.revenue >= 0 ? '📈 Profit' : '📉 Loss';
+  // ─── Profit hero (two components) ────────────────────────────
+  const expClass = stats.expectedProfit >= 0 ? 'bs-profit-half-green' : 'bs-profit-half-red';
+  const actClass = stats.actualProfit   >= 0 ? 'bs-profit-half-green' : 'bs-profit-half-red';
   document.getElementById('bs-revenue-card').innerHTML = `
-    <div class="bs-revenue-card ${revenueClass}">
-      <div class="bs-revenue-label">${label} — Revenue</div>
-      <div class="bs-revenue-value">₹${Math.abs(stats.revenue).toLocaleString()}</div>
-      <div class="bs-revenue-sub">${revenueLabel}
-        &nbsp;=&nbsp; Collected ₹${summary.totalCollected.toLocaleString()}
-        &nbsp;−&nbsp; Board Bill ₹${stats.projectedAmount.toLocaleString()}
+    <div class="bs-revenue-card">
+      <div class="bs-revenue-label">${label} — Profit Summary</div>
+      <div class="bs-profit-row">
+        <div class="bs-profit-half ${expClass}">
+          <div class="bs-profit-left">
+            <div class="bs-profit-half-label">📊 Expected Profit</div>
+            <div class="bs-profit-half-value">₹${Math.abs(stats.expectedProfit).toLocaleString()}</div>
+          </div>
+          <div class="bs-profit-right">
+            <div class="bs-profit-half-tag">${stats.expectedProfit >= 0 ? '📈 Profit' : '📉 Loss'}</div>
+            <div class="bs-profit-half-formula">
+              ₹${summary.totalCharged.toLocaleString()} Total<br>
+              + ₹${(summary.totalArrears || 0).toLocaleString()} Arrears<br>
+              − ₹${stats.projectedAmount.toLocaleString()} Board Bill
+            </div>
+          </div>
+        </div>
+        <div class="bs-profit-half ${actClass}">
+          <div class="bs-profit-left">
+            <div class="bs-profit-half-label">💰 Actual Profit</div>
+            <div class="bs-profit-half-value">₹${Math.abs(stats.actualProfit).toLocaleString()}</div>
+          </div>
+          <div class="bs-profit-right">
+            <div class="bs-profit-half-tag">${stats.actualProfit >= 0 ? '📈 Profit' : '📉 Loss'}</div>
+            <div class="bs-profit-half-formula">
+              ₹${summary.totalCollected.toLocaleString()} Collected<br>
+              − ₹${stats.projectedAmount.toLocaleString()} Board Bill
+            </div>
+          </div>
+        </div>
       </div>
-      ${!hasCharge ? '<div class="bs-no-charge-hint">⚠️ No monthly charge recorded yet. Add one to see accurate revenue.</div>' : ''}
+      ${!hasCharge ? '<div class="bs-no-charge-hint">⚠️ No monthly charge recorded yet. Add one to see accurate profit figures.</div>' : ''}
     </div>
   `;
 
@@ -1395,6 +1473,7 @@ function renderBSBills(bills) {
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>${(b.arrears ?? 0) > 0 ? `<span style="color:#f59e0b;font-weight:600">₹${(b.arrears).toLocaleString()}</span>` : '—'}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>${b.collectedDate ? fmtDate(b.collectedDate) : '—'}</td>
       <td style="color:var(--danger);font-weight:600;">₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
     </tr>
@@ -1540,8 +1619,22 @@ async function backupAllData() {
   const blob     = new Blob([json], { type: 'application/json' });
   const file     = new File([blob], filename, { type: 'application/json' });
 
-  // On mobile (Android WebView) the anchor-download trick is blocked;
-  // use the Web Share API with file sharing when available.
+  // Native Capacitor path — most reliable on Android.
+  const FS      = window.Capacitor?.Plugins?.Filesystem;
+  const SharePl = window.Capacitor?.Plugins?.Share;
+  if (FS && SharePl) {
+    try {
+      const { uri } = await FS.writeFile({ path: filename, data: btoa(json), directory: 'CACHE' });
+      await SharePl.share({ files: [uri], title: 'EBT Backup' });
+      return;
+    } catch (e) {
+      if (e.errorMessage?.toLowerCase().includes('cancel') ||
+          e.message?.toLowerCase().includes('cancel') ||
+          e.name === 'AbortError') return;
+    }
+  }
+
+  // Web Share API fallback.
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'EBT Backup' });
@@ -1552,7 +1645,7 @@ async function backupAllData() {
     }
   }
 
-  // Desktop / PWA fallback
+  // Desktop / PWA anchor-click fallback.
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = filename;
@@ -1613,14 +1706,32 @@ function buildCSV(headers, rows) {
 }
 
 async function downloadCSV(filename, csv) {
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const content = '\uFEFF' + csv;  // UTF-8 BOM for Excel compatibility
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const file = new File([blob], filename, { type: 'text/csv;charset=utf-8;' });
-  // On Android WebView anchor-click download is blocked; use Web Share API
+
+  // Native Capacitor path — most reliable on Android.
+  const FS      = window.Capacitor?.Plugins?.Filesystem;
+  const SharePl = window.Capacitor?.Plugins?.Share;
+  if (FS && SharePl) {
+    try {
+      const { uri } = await FS.writeFile({ path: filename, data: btoa(unescape(encodeURIComponent(content))), directory: 'CACHE' });
+      await SharePl.share({ files: [uri], title: filename });
+      return;
+    } catch (e) {
+      if (e.errorMessage?.toLowerCase().includes('cancel') ||
+          e.message?.toLowerCase().includes('cancel') ||
+          e.name === 'AbortError') return;
+    }
+  }
+
+  // Web Share API fallback.
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: filename }); return; }
     catch (err) { if (err.name !== 'AbortError') showToast('Share cancelled.', 'warning'); return; }
   }
-  // Desktop / PWA fallback
+
+  // Desktop / PWA anchor-click fallback.
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = filename;
