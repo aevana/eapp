@@ -940,10 +940,10 @@ function showBillImageModal(mobile, data) {
 
   document.getElementById('bill-img-download').onclick = async () => {
     const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-    // On Android WebView, anchor-click downloads are silently ignored.
-    // Use Web Share API (works in Capacitor WebView) to let user save to Downloads.
-    if (navigator.share) {
-      const file = canvasToFile(filename);
+    const file = canvasToFile(filename);
+    // Use canShare({ files }) — the correct check for file-sharing support in WebView.
+    // navigator.share alone only confirms basic text/URL sharing, not file sharing.
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
       catch (e) { if (e.name === 'AbortError') return; }
     }
@@ -956,8 +956,8 @@ function showBillImageModal(mobile, data) {
 
   document.getElementById('bill-img-share').onclick = async () => {
     const filename = 'electricity-bill.png';
-    if (navigator.share) {
-      const file = canvasToFile(filename);
+    const file = canvasToFile(filename);
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
       catch (e) { if (e.name === 'AbortError') return; }
     }
