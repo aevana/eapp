@@ -658,10 +658,10 @@ body {
   .modal-header h3 { font-size: 1.1rem; }
   .modal-actions {
     padding: 1rem 1.25rem;
-    flex-direction: column-reverse;
+    flex-direction: row;
     gap: .5rem;
   }
-  .modal-actions .btn { width: 100%; justify-content: center; font-size: .95rem; }
+  .modal-actions .btn { flex: 1; justify-content: center; font-size: .95rem; }
 
   /* Tracker tabs */
   .tracker-tabs { gap: .35rem; }
