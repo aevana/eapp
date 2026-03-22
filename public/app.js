@@ -943,7 +943,24 @@ function showBillImageModal(mobile, data) {
           data: dataUrl.split(',')[1],   // base64 portion only
           directory: 'CACHE',
         });
-        await SharePl.share({ files: [uri], title: 'Electricity Bill' });
+
+        if (forWhatsApp && clean) {
+          // Share mode: include customer name + number in the share text so
+          // WhatsApp pre-fills the message. After sharing, open WhatsApp
+          // directly to the customer's chat so the user can send it instantly.
+          await SharePl.share({
+            files: [uri],
+            title: 'Electricity Bill',
+            text: (data.name || '') + (clean ? '\n📞 ' + clean : ''),
+            dialogTitle: 'Send bill to ' + (data.name || 'customer'),
+          });
+          // Open the customer's WhatsApp chat (1 s delay lets the share
+          // intent land in WhatsApp before the deep-link navigates to the chat).
+          setTimeout(() => window.open('whatsapp://send?phone=91' + clean, '_system'), 1000);
+        } else {
+          // Download mode: plain file share, no WhatsApp context.
+          await SharePl.share({ files: [uri], title: 'Electricity Bill' });
+        }
         return;
       } catch (e) {
         // AbortError / user cancelled — do not fall through to another UI action.
