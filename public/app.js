@@ -928,46 +928,56 @@ function showBillImageModal(mobile, data) {
 
   const clean = (mobile || '').replace(/\D/g, '');
 
-  // Convert canvas to a File synchronously so navigator.share() is called
-  // within the user-gesture context (toBlob() is async and loses that context
-  // on Android WebView, causing share to be silently blocked).
-  function canvasToFile(name) {
-    const dataUrl = cvs.toDataURL('image/png');
-    const b64 = dataUrl.split(',')[1];
+  // Share/download a canvas image using the most reliable method available.
+  // Priority: Capacitor native plugins → Web Share API → anchor-click fallback.
+  async function shareCanvasImage(filename, forWhatsApp) {
+    const dataUrl  = cvs.toDataURL('image/png');
+    const FS       = window.Capacitor?.Plugins?.Filesystem;
+    const SharePl  = window.Capacitor?.Plugins?.Share;
+
+    // 1. Native Capacitor path — works on all Android versions reliably.
+    if (FS && SharePl) {
+      try {
+        const { uri } = await FS.writeFile({
+          path: filename,
+          data: dataUrl.split(',')[1],   // base64 portion only
+          directory: 'CACHE',
+        });
+        await SharePl.share({ files: [uri], title: 'Electricity Bill' });
+        return;
+      } catch (e) {
+        // AbortError / user cancelled — do not fall through to another UI action.
+        if (e.errorMessage?.toLowerCase().includes('cancel') ||
+            e.message?.toLowerCase().includes('cancel') ||
+            e.name === 'AbortError') return;
+        // Otherwise fall through to Web Share API below.
+      }
+    }
+
+    // 2. Web Share API with file support (requires Android 10+ Chrome WebView).
+    const b64   = dataUrl.split(',')[1];
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    return new File([bytes], name, { type: 'image/png' });
+    const file  = new File([bytes], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+
+    // 3. Desktop / PWA anchor-click fallback.
+    const a = document.createElement('a');
+    a.download = filename;
+    a.href = dataUrl;
+    a.click();
+    if (forWhatsApp && clean) {
+      setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
+    }
   }
 
-  document.getElementById('bill-img-download').onclick = async () => {
-    const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-    const file = canvasToFile(filename);
-    // Use canShare({ files }) — the correct check for file-sharing support in WebView.
-    // navigator.share alone only confirms basic text/URL sharing, not file sharing.
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
-    }
-    // Desktop fallback
-    const a = document.createElement('a');
-    a.download = filename;
-    a.href = cvs.toDataURL('image/png');
-    a.click();
-  };
+  document.getElementById('bill-img-download').onclick = () =>
+    shareCanvasImage('bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png', false);
 
-  document.getElementById('bill-img-share').onclick = async () => {
-    const filename = 'electricity-bill.png';
-    const file = canvasToFile(filename);
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
-    }
-    // Desktop fallback: download image then open WhatsApp
-    const a = document.createElement('a');
-    a.download = filename;
-    a.href = cvs.toDataURL('image/png');
-    a.click();
-    if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
-  };
+  document.getElementById('bill-img-share').onclick = () =>
+    shareCanvasImage('electricity-bill.png', true);
 
   openModal('modal-bill-image');
 }
@@ -1540,8 +1550,22 @@ async function backupAllData() {
   const blob     = new Blob([json], { type: 'application/json' });
   const file     = new File([blob], filename, { type: 'application/json' });
 
-  // On mobile (Android WebView) the anchor-download trick is blocked;
-  // use the Web Share API with file sharing when available.
+  // Native Capacitor path — most reliable on Android.
+  const FS      = window.Capacitor?.Plugins?.Filesystem;
+  const SharePl = window.Capacitor?.Plugins?.Share;
+  if (FS && SharePl) {
+    try {
+      const { uri } = await FS.writeFile({ path: filename, data: btoa(json), directory: 'CACHE' });
+      await SharePl.share({ files: [uri], title: 'EBT Backup' });
+      return;
+    } catch (e) {
+      if (e.errorMessage?.toLowerCase().includes('cancel') ||
+          e.message?.toLowerCase().includes('cancel') ||
+          e.name === 'AbortError') return;
+    }
+  }
+
+  // Web Share API fallback.
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'EBT Backup' });
@@ -1552,7 +1576,7 @@ async function backupAllData() {
     }
   }
 
-  // Desktop / PWA fallback
+  // Desktop / PWA anchor-click fallback.
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = filename;
@@ -1613,14 +1637,32 @@ function buildCSV(headers, rows) {
 }
 
 async function downloadCSV(filename, csv) {
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const content = '\uFEFF' + csv;  // UTF-8 BOM for Excel compatibility
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const file = new File([blob], filename, { type: 'text/csv;charset=utf-8;' });
-  // On Android WebView anchor-click download is blocked; use Web Share API
+
+  // Native Capacitor path — most reliable on Android.
+  const FS      = window.Capacitor?.Plugins?.Filesystem;
+  const SharePl = window.Capacitor?.Plugins?.Share;
+  if (FS && SharePl) {
+    try {
+      const { uri } = await FS.writeFile({ path: filename, data: btoa(unescape(encodeURIComponent(content))), directory: 'CACHE' });
+      await SharePl.share({ files: [uri], title: filename });
+      return;
+    } catch (e) {
+      if (e.errorMessage?.toLowerCase().includes('cancel') ||
+          e.message?.toLowerCase().includes('cancel') ||
+          e.name === 'AbortError') return;
+    }
+  }
+
+  // Web Share API fallback.
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: filename }); return; }
     catch (err) { if (err.name !== 'AbortError') showToast('Share cancelled.', 'warning'); return; }
   }
-  // Desktop / PWA fallback
+
+  // Desktop / PWA anchor-click fallback.
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = filename;
