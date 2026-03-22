@@ -844,7 +844,7 @@ function generateBillCanvas(d) {
   c.fillText(s.appHeader, PAD, 48);
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = 'rgba(255,255,255,0.75)';
-  c.fillText(s.appSubHeader, PAD, 88);
+  c.fillText(s.appSubHeader, PAD, 70);
 
   // Today's date — top right of header
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -928,34 +928,45 @@ function showBillImageModal(mobile, data) {
 
   const clean = (mobile || '').replace(/\D/g, '');
 
-  document.getElementById('bill-img-download').onclick = () => {
-    cvs.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    }, 'image/png');
+  // Convert canvas to a File synchronously so navigator.share() is called
+  // within the user-gesture context (toBlob() is async and loses that context
+  // on Android WebView, causing share to be silently blocked).
+  function canvasToFile(name) {
+    const dataUrl = cvs.toDataURL('image/png');
+    const b64 = dataUrl.split(',')[1];
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    return new File([bytes], name, { type: 'image/png' });
+  }
+
+  document.getElementById('bill-img-download').onclick = async () => {
+    const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
+    // On Android WebView, anchor-click downloads are silently ignored.
+    // Use Web Share API (works in Capacitor WebView) to let user save to Downloads.
+    if (navigator.share) {
+      const file = canvasToFile(filename);
+      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    // Desktop fallback
+    const a = document.createElement('a');
+    a.download = filename;
+    a.href = cvs.toDataURL('image/png');
+    a.click();
   };
 
-  document.getElementById('bill-img-share').onclick = () => {
-    cvs.toBlob(async blob => {
-      const filename = 'bill-' + (data.name || 'customer').replace(/\s+/g, '-') + '.png';
-      const file = new File([blob], filename, { type: 'image/png' });
-      // Try Web Share API with file (works on Android WebView / iOS)
-      if (navigator.share) {
-        try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
-        catch (e) { if (e.name === 'AbortError') return; }
-      }
-      // Desktop / unsupported fallback: download then open WhatsApp
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 800);
-    }, 'image/png');
+  document.getElementById('bill-img-share').onclick = async () => {
+    const filename = 'electricity-bill.png';
+    if (navigator.share) {
+      const file = canvasToFile(filename);
+      try { await navigator.share({ files: [file], title: 'Electricity Bill' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    // Desktop fallback: download image then open WhatsApp
+    const a = document.createElement('a');
+    a.download = filename;
+    a.href = cvs.toDataURL('image/png');
+    a.click();
+    if (clean) setTimeout(() => window.open('https://wa.me/91' + clean, '_blank'), 600);
   };
 
   openModal('modal-bill-image');
