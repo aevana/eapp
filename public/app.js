@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     'c-name','c-mobile',
     'ec-name','ec-mobile',
     'b-customer','b-startdate','b-qty','b-perday','b-arrears',
-    'ub-startdate','ub-stopdate','ub-qty','ub-perday','ub-collected','ub-arrears',
+    'ub-startdate','ub-stopdate','ub-qty','ub-perday','ub-collected','ub-collecteddate','ub-arrears',
     'mc-year','mc-projected-amount','mc-units-charged','mc-bill-paid-date',
     'filter-year','bs-filter-year',
   ].forEach(id => {
@@ -358,6 +358,7 @@ function renderCustomerPage(customer, bills) {
           <div class="cbill-stat"><span>Total</span><strong>₹${(b.total ?? 0).toLocaleString()}</strong></div>
           <div class="cbill-stat"><span>Arrears</span><strong style="color:${(b.arrears ?? 0) > 0 ? 'var(--warning,#f59e0b)' : 'inherit'}">₹${(b.arrears ?? 0).toLocaleString()}</strong></div>
           <div class="cbill-stat"><span>Collected</span><strong style="color:var(--success)">₹${(b.collectedAmount ?? 0).toLocaleString()}</strong></div>
+          ${b.collectedDate ? `<div class="cbill-stat"><span>Collected Date</span><strong>${fmtDate(b.collectedDate)}</strong></div>` : ''}
           <div class="cbill-stat"><span>Pending</span><strong style="color:${b.pendingAmount > 0 ? 'var(--danger)' : 'inherit'}">₹${(b.pendingAmount ?? 0).toLocaleString()}</strong></div>
         </div>
         ${b.comments ? `<div class="cbill-comments">💬 ${esc(b.comments)}</div>` : ''}
@@ -516,6 +517,7 @@ function renderBills(bills) {
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>${(b.arrears ?? 0) > 0 ? `<span style="color:#f59e0b;font-weight:600">₹${(b.arrears).toLocaleString()}</span>` : '—'}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>${b.collectedDate ? fmtDate(b.collectedDate) : '—'}</td>
       <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
       <td style="max-width:120px;font-size:.8rem;color:#64748b;">${esc(b.comments || '—')}</td>
@@ -615,9 +617,10 @@ function openUpdateBill(id) {
   document.getElementById('ub-stopdate').value   = b.stopDate  || '';
   document.getElementById('ub-qty').value        = b.quantity;
   document.getElementById('ub-perday').value     = b.perDayCharge;
-  document.getElementById('ub-collected').value  = b.collectedAmount || 0;
-  document.getElementById('ub-arrears').value    = b.arrears || 0;
-  document.getElementById('ub-comments').value   = b.comments || '';
+  document.getElementById('ub-collected').value      = b.collectedAmount || 0;
+  document.getElementById('ub-collecteddate').value  = b.collectedDate || toDateStr(new Date());
+  document.getElementById('ub-arrears').value        = b.arrears || 0;
+  document.getElementById('ub-comments').value       = b.comments || '';
   openModal('modal-update-bill');
   updateBillPreview();
 }
@@ -664,6 +667,7 @@ async function submitUpdateBill(e) {
     quantity:        parseInt(document.getElementById('ub-qty').value),
     perDayCharge:    parseInt(document.getElementById('ub-perday').value),
     collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
+    collectedDate:   document.getElementById('ub-collecteddate').value || null,
     arrears:         parseFloat(document.getElementById('ub-arrears').value) || 0,
     comments:        document.getElementById('ub-comments').value.trim(),
   };
@@ -1185,6 +1189,7 @@ function renderTrackerBills(bills) {
       <td>₹${b.perDayCharge}</td>
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>${b.collectedDate ? fmtDate(b.collectedDate) : '—'}</td>
       <td>₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
     </tr>
@@ -1438,6 +1443,7 @@ function renderBSBills(bills) {
       <td>₹${(b.total ?? 0).toLocaleString()}</td>
       <td>${(b.arrears ?? 0) > 0 ? `<span style="color:#f59e0b;font-weight:600">₹${(b.arrears).toLocaleString()}</span>` : '—'}</td>
       <td>₹${(b.collectedAmount ?? 0).toLocaleString()}</td>
+      <td>${b.collectedDate ? fmtDate(b.collectedDate) : '—'}</td>
       <td style="color:var(--danger);font-weight:600;">₹${(b.pendingAmount ?? 0).toLocaleString()}</td>
       <td><span class="badge badge-${b.status}">${b.status}</span></td>
     </tr>

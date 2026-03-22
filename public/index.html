@@ -145,7 +145,7 @@
           <thead>
             <tr>
               <th>#</th><th>Customer</th><th>Start Date</th><th>Stop Date</th><th>Days</th>
-              <th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Arrears (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Comments</th><th>Actions</th>
+              <th>Qty</th><th>Per Day (₹)</th><th>Total (₹)</th><th>Arrears (₹)</th><th>Collected (₹)</th><th>Collected Date</th><th>Pending (₹)</th><th>Status</th><th>Comments</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="bills-tbody">
@@ -200,7 +200,7 @@
                 <th class="th-sort" onclick="sortTrackerBills('numberOfDays')" id="th-numberOfDays">Days</th>
                 <th>Qty</th><th>Per Day (₹)</th>
                 <th class="th-sort" onclick="sortTrackerBills('total')"  id="th-total">Total (₹)</th>
-                <th>Collected (₹)</th><th>Pending (₹)</th>
+                <th>Collected (₹)</th><th>Collected Date</th><th>Pending (₹)</th>
                 <th class="th-sort" onclick="sortTrackerBills('status')" id="th-status">Status</th>
               </tr>
             </thead>
@@ -282,7 +282,7 @@
                   <th class="th-sort" onclick="sortBSBills('numberOfDays')" id="bs-th-numberOfDays">Days</th>
                   <th>Qty</th><th>Per Day (₹)</th>
                   <th class="th-sort" onclick="sortBSBills('total')"        id="bs-th-total">Total (₹)</th>
-                  <th>Arrears (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th>
+                  <th>Arrears (₹)</th><th>Collected (₹)</th><th>Collected Date</th><th>Pending (₹)</th>
                   <th class="th-sort" onclick="sortBSBills('status')"       id="bs-th-status">Status</th>
                 </tr>
               </thead>
@@ -614,9 +614,16 @@
             <input type="number" id="ub-collected" min="0" value="0" oninput="updateBillPreview()" />
           </div>
           <div class="form-group">
+            <label>Collected Date</label>
+            <input type="date" id="ub-collecteddate" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label>Arrears (₹)</label>
             <input type="number" id="ub-arrears" min="0" value="0" oninput="updateBillPreview()" />
           </div>
+          <div class="form-group"></div>
         </div>
         <div class="form-group">
           <label>Comments</label>
