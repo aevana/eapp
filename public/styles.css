@@ -733,8 +733,8 @@ body {
   .bs-revenue-card       { padding: 1rem; }
   .bs-profit-row         { grid-template-columns: 1fr; }
   .bs-profit-half-value  { font-size: 1.5rem; }
-  .bs-toolbar       { flex-direction: column; }
-  .bs-toolbar .btn  { width: 100%; justify-content: center; }
+  .bs-toolbar         { flex-direction: column; }
+  .bs-filter-block > .btn { width: 100%; justify-content: center; }
   .bs-charge-grid   { grid-template-columns: 1fr 1fr; }
 
   /* Toast — full width at top */
