@@ -137,11 +137,12 @@
         <input type="file" id="csv-import-bills" accept=".csv" style="display:none" onchange="handleCSVImport(event,'bills')" />
       </div>
       <div class="filter-row">
-        <select id="bill-filter-status" onchange="loadBills()">
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="stopped">Stopped</option>
-        </select>
+        <div class="status-toggle-group">
+          <button type="button" class="status-toggle active" data-status="" onclick="setBillStatusFilter(this)">All</button>
+          <button type="button" class="status-toggle" data-status="active" onclick="setBillStatusFilter(this)">Active</button>
+          <button type="button" class="status-toggle" data-status="stopped" onclick="setBillStatusFilter(this)">Stopped</button>
+        </div>
+        <input type="hidden" id="bill-filter-status" value="" />
         <input type="text" id="bill-search" placeholder="🔍 Search by customer…" oninput="filterBills()" />
       </div>
       <div class="table-wrap">

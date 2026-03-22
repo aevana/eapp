@@ -175,6 +175,18 @@ body {
   border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,.15);
 }
 
+/* ── Status toggle ───────────────────────────────────────────── */
+.status-toggle-group {
+  display: flex; border: 1px solid var(--gray-300); border-radius: var(--radius); overflow: hidden;
+}
+.status-toggle {
+  padding: .45rem 1rem; font-size: .875rem; font-weight: 600;
+  background: #fff; color: var(--gray-600); border: none; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.status-toggle + .status-toggle { border-left: 1px solid var(--gray-300); }
+.status-toggle.active { background: var(--primary); color: #fff; }
+
 /* ── Table ────────────────────────────────────────────────────── */
 .table-wrap {
   background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);

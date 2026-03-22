@@ -496,6 +496,13 @@ async function submitEditCustomer(e) {
 //  BILLS
 // ══════════════════════════════════════════════════════════════
 
+function setBillStatusFilter(btn) {
+  document.querySelectorAll('.status-toggle-group .status-toggle').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('bill-filter-status').value = btn.dataset.status;
+  loadBills();
+}
+
 async function loadBills() {
   const status = document.getElementById('bill-filter-status').value;
   try {
