@@ -994,23 +994,90 @@ body {
   font-size: .8rem; color: var(--gray-500); margin: 0; line-height: 1.5;
 }
 
-/* Contact box */
-.about-contact-box {
-  padding: 1.25rem; font-size: .875rem; color: var(--gray-700); line-height: 1.9;
+/* ── About: App Stats ─────────────────────────────────────── */
+.about-stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem;
+  padding: 1.1rem 1.25rem;
 }
-.about-contact-box p { margin-bottom: .2rem; }
+.about-stat-card {
+  background: #f8fafc; border: 1px solid var(--gray-200);
+  border-radius: var(--radius); padding: .75rem .9rem; text-align: center;
+}
+.about-stat-val  { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
+.about-stat-lbl  { font-size: .68rem; color: var(--gray-500); margin-top: .15rem; text-transform: uppercase; letter-spacing: .05em; }
+
+/* ── About: Changelog ─────────────────────────────────────── */
+.changelog-list  { padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: .9rem; }
+.changelog-entry { border-left: 3px solid var(--primary); padding-left: .9rem; }
+.changelog-version { font-size: .85rem; font-weight: 700; color: var(--primary); }
+.changelog-date    { font-size: .72rem; color: var(--gray-400); margin-bottom: .35rem; }
+.changelog-items   { margin: 0; padding-left: 1.1rem; font-size: .82rem; color: var(--gray-600); line-height: 1.75; }
+
+/* ── About: Features ──────────────────────────────────────── */
+.features-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: .65rem; padding: 1.1rem 1.25rem;
+}
+.feature-card {
+  background: #f8fafc; border: 1px solid var(--gray-200);
+  border-radius: var(--radius); padding: .85rem .9rem;
+}
+.feature-icon  { font-size: 1.4rem; margin-bottom: .35rem; }
+.feature-name  { font-size: .82rem; font-weight: 700; color: var(--gray-800); margin-bottom: .2rem; }
+.feature-desc  { font-size: .72rem; color: var(--gray-500); line-height: 1.55; }
+
+/* ── About: Privacy banner ────────────────────────────────── */
+.about-privacy-card {
+  display: flex; align-items: flex-start; gap: .9rem;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+  padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
+}
+.about-privacy-icon  { font-size: 1.6rem; flex-shrink: 0; }
+.about-privacy-title { font-size: .9rem; font-weight: 700; color: #15803d; margin-bottom: .3rem; }
+.about-privacy-text  { font-size: .8rem; color: #166534; line-height: 1.65; }
+
+/* ── About: Tips ──────────────────────────────────────────── */
+.tips-list {
+  padding: 1.1rem 1.25rem; list-style: none; margin: 0;
+  display: flex; flex-direction: column; gap: .55rem;
+}
+.tips-list li {
+  font-size: .845rem; color: var(--gray-700); line-height: 1.6;
+  padding-left: .1rem;
+}
+.tip-tag {
+  display: inline-block; padding: .1rem .45rem; border-radius: 4px;
+  background: var(--primary); color: #fff; font-size: .68rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  margin-right: .4rem; vertical-align: middle;
+}
+
+/* ── About: Contact card ──────────────────────────────────── */
+.about-contact-card {
+  padding: 1.1rem 1.25rem; font-size: .875rem; color: var(--gray-700);
+}
+.about-contact-info   { display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem; }
+.about-contact-row    { display: flex; gap: .75rem; align-items: baseline; }
+.about-contact-lbl    { min-width: 70px; font-weight: 700; font-size: .75rem; color: var(--gray-400); text-transform: uppercase; flex-shrink: 0; }
+.about-wa-btn {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .6rem 1.25rem; border-radius: 8px; font-weight: 700;
+  font-size: .875rem; text-decoration: none; margin-bottom: .9rem;
+}
 .about-copyright {
-  margin-top: 1rem !important; font-size: .8rem; color: var(--gray-400);
+  margin-top: .5rem; font-size: .78rem; color: var(--gray-400);
   text-align: center; padding-top: .75rem;
   border-top: 1px solid var(--gray-100);
 }
 
 @media (max-width: 700px) {
-  .about-hero-card  { padding: 1.5rem 1rem; }
-  .about-logo       { font-size: 2.5rem; }
-  .about-app-name   { font-size: 1.35rem; }
-  .about-meta-grid  { grid-template-columns: 1fr 1fr; }
-  .terms-box        { max-height: 340px; }
+  .about-hero-card   { padding: 1.5rem 1rem; }
+  .about-logo        { font-size: 2.5rem; }
+  .about-app-name    { font-size: 1.35rem; }
+  .about-meta-grid   { grid-template-columns: 1fr 1fr; }
+  .terms-box         { max-height: 340px; }
+  .about-stats-grid  { grid-template-columns: 1fr 1fr; }
+  .features-grid     { grid-template-columns: 1fr 1fr; }
 }
 
 /* ══════════════════════════════════════════════════════════════
