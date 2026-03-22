@@ -79,7 +79,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'settings') loadSettings();
       if (btn.dataset.tab === 'home')     loadHome();
-      if (btn.dataset.tab === 'about')    loadAbout();
     });
   });
 
@@ -260,29 +259,6 @@ function switchToCustomer(id) {
   openCustomerPage(id);
 }
 
-// ══════════════════════════════════════════════════════════════
-//  ABOUT
-// ══════════════════════════════════════════════════════════════
-
-async function loadAbout() {
-  try {
-    const [customers, bills, charges] = await Promise.all([
-      apiFetch('/api/customers'),
-      apiFetch('/api/bills'),
-      apiFetch('/api/monthly-charges'),
-    ]);
-    const activeBills    = bills.filter(b => b.status === 'active').length;
-    const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
-    const totalPending   = bills.reduce((s, b) => s + (b.pendingAmount   || 0), 0);
-    const totalCharges   = charges.reduce((s, c) => s + (c.projectedAmount || 0), 0);
-    document.getElementById('astat-customers').textContent = customers.length;
-    document.getElementById('astat-bills').textContent     = bills.length;
-    document.getElementById('astat-active').textContent    = activeBills;
-    document.getElementById('astat-collected').textContent = '₹' + totalCollected.toLocaleString();
-    document.getElementById('astat-pending').textContent   = '₹' + totalPending.toLocaleString();
-    document.getElementById('astat-charges').textContent   = '₹' + totalCharges.toLocaleString();
-  } catch (e) { /* silently skip if data unavailable */ }
-}
 
 // ══════════════════════════════════════════════════════════════
 //  CUSTOMERS
