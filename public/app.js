@@ -1218,12 +1218,20 @@ function selectBSMonth(m) {
   });
 }
 
+function selectUnitsPerDay(n) {
+  document.getElementById('bs-units-per-day').value = n;
+  document.querySelectorAll('.bs-units-toggle .toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.units) === n);
+  });
+}
+
 async function loadBalanceSheet() {
   if (!validateFields([{ id: 'bs-filter-year', label: 'Year', required: true, min: 2000, max: 2100 }])) return;
-  const month = document.getElementById('bs-filter-month').value;
-  const year  = document.getElementById('bs-filter-year').value;
+  const month       = document.getElementById('bs-filter-month').value;
+  const year        = document.getElementById('bs-filter-year').value;
+  const unitsPerDay = document.getElementById('bs-units-per-day').value || 20;
   try {
-    lastBSData = await apiFetch(`/api/balance-sheet?month=${month}&year=${year}`);
+    lastBSData = await apiFetch(`/api/balance-sheet?month=${month}&year=${year}&unitsPerDay=${unitsPerDay}`);
     renderBalanceSheet(lastBSData);
   } catch (e) { showToast(e.message, 'error'); }
 }

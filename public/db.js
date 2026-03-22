@@ -262,7 +262,7 @@ const DB = (() => {
   //  BALANCE SHEET
   // ══════════════════════════════════════════════════════════════
 
-  function getBalanceSheet(month, year) {
+  function getBalanceSheet(month, year, unitsPerDay) {
     const m = parseInt(month), y = parseInt(year);
     if (!m || !y) throw new Error('month and year required');
     const customers = readCustomers();
@@ -278,8 +278,9 @@ const DB = (() => {
     const totalActiveQty = bills.reduce((s, b) => s + (b.quantity || 0), 0);
     const totalArrears   = bills.reduce((s, b) => s + (b.arrears || 0), 0);
 
-    const AVG_UNITS_PER_QTY = 22.5;
-    const unitsProjected  = Math.round(totalActiveQty * AVG_UNITS_PER_QTY);
+    const UNITS_PER_DAY  = parseInt(unitsPerDay) === 25 ? 25 : 20;
+    const totalBillDays  = bills.reduce((s, b) => s + ((b.numberOfDays || 0) * (b.quantity || 1)), 0);
+    const unitsProjected = totalBillDays * UNITS_PER_DAY;
     const unitsCharged    = monthlyCharge ? (monthlyCharge.unitsCharged || 0) : 0;
     const projectedAmount = monthlyCharge ? (monthlyCharge.projectedAmount || 0) : 0;
     const expectedProfit  = totalCharged + totalArrears - projectedAmount;
@@ -341,7 +342,7 @@ const DB = (() => {
         break;
 
       case 'balance-sheet':
-        return getBalanceSheet(params.month, params.year);
+        return getBalanceSheet(params.month, params.year, params.unitsPerDay);
     }
     throw new Error(`Unknown route: ${method} ${url}`);
   }

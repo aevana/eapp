@@ -374,6 +374,20 @@ body {
 .bs-year-row {
   display: flex; align-items: center; gap: .6rem;
 }
+.bs-units-toggle {
+  display: flex; align-items: center; gap: .6rem;
+}
+.toggle-group {
+  display: flex; border: 1px solid var(--gray-300); border-radius: var(--radius); overflow: hidden;
+}
+.toggle-btn {
+  padding: .3rem .75rem; font-size: .875rem; font-weight: 600;
+  background: var(--white); color: var(--gray-700); border: none; cursor: pointer;
+}
+.toggle-btn + .toggle-btn { border-left: 1px solid var(--gray-300); }
+.toggle-btn.active {
+  background: var(--primary); color: var(--white);
+}
 .bs-year-label {
   font-weight: 600; font-size: .875rem; color: var(--gray-700); white-space: nowrap;
 }
