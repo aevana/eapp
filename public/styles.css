@@ -414,33 +414,63 @@ body {
   display: flex; flex-wrap: wrap; gap: .5rem;
 }
 
-/* Revenue hero card */
+/* Revenue / Profit Summary card */
 .bs-revenue-card {
-  border-radius: 12px; padding: 1.5rem 2rem; margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-md); color: #fff; text-align: center;
+  border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+  background: #f8fafc;
+  box-shadow: 0 4px 18px rgba(0,0,0,.09), 0 1px 4px rgba(0,0,0,.05);
+  text-align: left;
 }
-.bs-revenue-profit { background: linear-gradient(135deg, #166534 0%, #16a34a 100%); }
-.bs-revenue-loss   { background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%); }
-.bs-revenue-label  { font-size: .9rem; font-weight: 600; opacity: .85; text-transform: uppercase; letter-spacing: .06em; }
-.bs-revenue-value  { font-size: 3rem; font-weight: 800; margin: .35rem 0; letter-spacing: -1px; }
-.bs-revenue-sub    { font-size: .875rem; opacity: .8; }
+.bs-revenue-label  { font-size: .78rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .9rem; }
 .bs-no-charge-hint {
-  margin-top: .75rem; background: rgba(255,255,255,.2); border-radius: var(--radius);
-  padding: .5rem 1rem; font-size: .8rem;
+  margin-top: .85rem; background: #fef9c3; border: 1px solid #fde68a; border-radius: var(--radius);
+  padding: .5rem 1rem; font-size: .8rem; color: #92400e;
 }
 
 /* Dual-profit card */
-.bs-profit-card-neutral { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
 .bs-profit-row {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: 1rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
 }
-.bs-profit-half           { border-radius: 10px; padding: .9rem 1rem; text-align: left; }
-.bs-profit-half-green     { background: rgba(22,163,74,.3); }
-.bs-profit-half-red       { background: rgba(220,38,38,.3); }
-.bs-profit-half-label     { font-size: .72rem; font-weight: 700; opacity: .8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .2rem; }
-.bs-profit-half-value     { font-size: 1.6rem; font-weight: 800; letter-spacing: -.5px; margin: .15rem 0; }
-.bs-profit-half-tag       { font-size: .8rem; font-weight: 600; opacity: .9; margin-bottom: .4rem; }
-.bs-profit-half-formula   { font-size: .72rem; opacity: .75; line-height: 1.55; }
+
+/* Each half-card */
+.bs-profit-half {
+  border-radius: 10px; padding: 1rem 1.1rem;
+  display: flex; align-items: stretch; gap: .9rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+}
+.bs-profit-half-green { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.bs-profit-half-red   { background: #fff1f2; border: 1px solid #fecdd3; }
+
+/* Left fragment — big number */
+.bs-profit-left {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0; flex: 1;
+}
+.bs-profit-half-label {
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; margin-bottom: .25rem;
+}
+.bs-profit-half-green .bs-profit-half-label { color: #166534; }
+.bs-profit-half-red   .bs-profit-half-label { color: #991b1b; }
+.bs-profit-half-value {
+  font-size: 2rem; font-weight: 800; letter-spacing: -.5px; line-height: 1;
+}
+.bs-profit-half-green .bs-profit-half-value { color: #15803d; }
+.bs-profit-half-red   .bs-profit-half-value { color: #dc2626; }
+
+/* Right fragment — tag + formula */
+.bs-profit-right {
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
+  text-align: right; flex-shrink: 0;
+}
+.bs-profit-half-tag {
+  font-size: .82rem; font-weight: 700; margin-bottom: .35rem; white-space: nowrap;
+}
+.bs-profit-half-green .bs-profit-half-tag { color: #15803d; }
+.bs-profit-half-red   .bs-profit-half-tag { color: #dc2626; }
+.bs-profit-half-formula {
+  font-size: .7rem; line-height: 1.65; color: #64748b;
+}
 
 /* Stats grid */
 .bs-stats-grid {
@@ -700,10 +730,9 @@ body {
 
   /* Balance sheet */
   .bs-stats-grid         { grid-template-columns: 1fr; }
-  .bs-revenue-value      { font-size: 2rem; }
-  .bs-revenue-card       { padding: 1.25rem 1rem; }
+  .bs-revenue-card       { padding: 1rem; }
   .bs-profit-row         { grid-template-columns: 1fr; }
-  .bs-profit-half-value  { font-size: 1.35rem; }
+  .bs-profit-half-value  { font-size: 1.5rem; }
   .bs-toolbar       { flex-direction: column; }
   .bs-toolbar .btn  { width: 100%; justify-content: center; }
   .bs-charge-grid   { grid-template-columns: 1fr 1fr; }

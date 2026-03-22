@@ -1245,26 +1245,34 @@ function renderBalanceSheet(data) {
   const expClass = stats.expectedProfit >= 0 ? 'bs-profit-half-green' : 'bs-profit-half-red';
   const actClass = stats.actualProfit   >= 0 ? 'bs-profit-half-green' : 'bs-profit-half-red';
   document.getElementById('bs-revenue-card').innerHTML = `
-    <div class="bs-revenue-card bs-profit-card-neutral">
+    <div class="bs-revenue-card">
       <div class="bs-revenue-label">${label} — Profit Summary</div>
       <div class="bs-profit-row">
         <div class="bs-profit-half ${expClass}">
-          <div class="bs-profit-half-label">📊 Expected Profit</div>
-          <div class="bs-profit-half-value">₹${Math.abs(stats.expectedProfit).toLocaleString()}</div>
-          <div class="bs-profit-half-tag">${stats.expectedProfit >= 0 ? '📈 Profit' : '📉 Loss'}</div>
-          <div class="bs-profit-half-formula">
-            ₹${summary.totalCharged.toLocaleString()} Total<br>
-            + ₹${(summary.totalArrears || 0).toLocaleString()} Arrears<br>
-            − ₹${stats.projectedAmount.toLocaleString()} Board Bill
+          <div class="bs-profit-left">
+            <div class="bs-profit-half-label">📊 Expected Profit</div>
+            <div class="bs-profit-half-value">₹${Math.abs(stats.expectedProfit).toLocaleString()}</div>
+          </div>
+          <div class="bs-profit-right">
+            <div class="bs-profit-half-tag">${stats.expectedProfit >= 0 ? '📈 Profit' : '📉 Loss'}</div>
+            <div class="bs-profit-half-formula">
+              ₹${summary.totalCharged.toLocaleString()} Total<br>
+              + ₹${(summary.totalArrears || 0).toLocaleString()} Arrears<br>
+              − ₹${stats.projectedAmount.toLocaleString()} Board Bill
+            </div>
           </div>
         </div>
         <div class="bs-profit-half ${actClass}">
-          <div class="bs-profit-half-label">💰 Actual Profit</div>
-          <div class="bs-profit-half-value">₹${Math.abs(stats.actualProfit).toLocaleString()}</div>
-          <div class="bs-profit-half-tag">${stats.actualProfit >= 0 ? '📈 Profit' : '📉 Loss'}</div>
-          <div class="bs-profit-half-formula">
-            ₹${summary.totalCollected.toLocaleString()} Collected<br>
-            − ₹${stats.projectedAmount.toLocaleString()} Board Bill
+          <div class="bs-profit-left">
+            <div class="bs-profit-half-label">💰 Actual Profit</div>
+            <div class="bs-profit-half-value">₹${Math.abs(stats.actualProfit).toLocaleString()}</div>
+          </div>
+          <div class="bs-profit-right">
+            <div class="bs-profit-half-tag">${stats.actualProfit >= 0 ? '📈 Profit' : '📉 Loss'}</div>
+            <div class="bs-profit-half-formula">
+              ₹${summary.totalCollected.toLocaleString()} Collected<br>
+              − ₹${stats.projectedAmount.toLocaleString()} Board Bill
+            </div>
           </div>
         </div>
       </div>
