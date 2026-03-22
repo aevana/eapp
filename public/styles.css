@@ -415,6 +415,19 @@ body {
   padding: .5rem 1rem; font-size: .8rem;
 }
 
+/* Dual-profit card */
+.bs-profit-card-neutral { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
+.bs-profit-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: 1rem;
+}
+.bs-profit-half           { border-radius: 10px; padding: .9rem 1rem; text-align: left; }
+.bs-profit-half-green     { background: rgba(22,163,74,.3); }
+.bs-profit-half-red       { background: rgba(220,38,38,.3); }
+.bs-profit-half-label     { font-size: .72rem; font-weight: 700; opacity: .8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .2rem; }
+.bs-profit-half-value     { font-size: 1.6rem; font-weight: 800; letter-spacing: -.5px; margin: .15rem 0; }
+.bs-profit-half-tag       { font-size: .8rem; font-weight: 600; opacity: .9; margin-bottom: .4rem; }
+.bs-profit-half-formula   { font-size: .72rem; opacity: .75; line-height: 1.55; }
+
 /* Stats grid */
 .bs-stats-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -672,9 +685,11 @@ body {
   .summary-card .sc-value { font-size: 1.35rem; }
 
   /* Balance sheet */
-  .bs-stats-grid    { grid-template-columns: 1fr; }
-  .bs-revenue-value { font-size: 2rem; }
-  .bs-revenue-card  { padding: 1.25rem 1rem; }
+  .bs-stats-grid         { grid-template-columns: 1fr; }
+  .bs-revenue-value      { font-size: 2rem; }
+  .bs-revenue-card       { padding: 1.25rem 1rem; }
+  .bs-profit-row         { grid-template-columns: 1fr; }
+  .bs-profit-half-value  { font-size: 1.35rem; }
   .bs-toolbar       { flex-direction: column; }
   .bs-toolbar .btn  { width: 100%; justify-content: center; }
   .bs-charge-grid   { grid-template-columns: 1fr 1fr; }
