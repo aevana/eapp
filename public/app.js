@@ -165,7 +165,10 @@ function switchTracker(type) {
 
 async function loadHome() {
   try {
-    const data = await apiFetch('/api/tracker/customers');   // same as loadCustomers uses
+    const [data, charges] = await Promise.all([
+      apiFetch('/api/tracker/customers'),
+      apiFetch('/api/monthly-charges'),
+    ]);
 
     // ── compute totals
     let totalPending = 0, totalCollected = 0, runningCount = 0;
@@ -183,11 +186,14 @@ async function loadHome() {
       });
     });
 
+    const totalChargesPaid = charges.reduce((s, c) => s + (c.projectedAmount || 0), 0);
+
     // ── stat row
-    document.getElementById('hs-val-customers').textContent  = data.length;
-    document.getElementById('hs-val-running').textContent    = runningCount;
-    document.getElementById('hs-val-pending').textContent    = '₹' + totalPending.toLocaleString();
-    document.getElementById('hs-val-collected').textContent  = '₹' + totalCollected.toLocaleString();
+    document.getElementById('hs-val-customers').textContent    = data.length;
+    document.getElementById('hs-val-running').textContent      = runningCount;
+    document.getElementById('hs-val-pending').textContent      = '₹' + totalPending.toLocaleString();
+    document.getElementById('hs-val-collected').textContent    = '₹' + totalCollected.toLocaleString();
+    document.getElementById('hs-val-charges-paid').textContent = '₹' + totalChargesPaid.toLocaleString();
     document.getElementById('hs-running-badge').textContent  = runningCount;
 
     // ── running set cards

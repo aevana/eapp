@@ -819,6 +819,7 @@ body {
 }
 .home-stat-danger .home-stat-value  { color: var(--danger); }
 .home-stat-success .home-stat-value { color: var(--success); }
+.home-stat-warning .home-stat-value { color: #f59e0b; }
 
 .home-section-header {
   display: flex;
