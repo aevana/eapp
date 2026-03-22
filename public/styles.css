@@ -663,10 +663,10 @@ body {
   /* Main content */
   .main    { padding: 0 .75rem 5rem; margin-top: .85rem; }
 
-  /* Section header — stack title & button */
+  /* Section header — stack title & buttons */
   .section-header { flex-direction: column; align-items: flex-start; }
   .section-header h2 { font-size: 1.2rem; }
-  .section-header .btn { width: 100%; justify-content: center; }
+  .section-header > .btn { width: 100%; justify-content: center; }
 
   /* Search / filter — full width inputs */
   .search-bar, .filter-row { flex-direction: column; gap: .5rem; }
