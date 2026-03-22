@@ -844,7 +844,7 @@ function generateBillCanvas(d) {
   c.fillText(s.appHeader, PAD, 48);
   c.font = '13px system-ui, sans-serif';
   c.fillStyle = 'rgba(255,255,255,0.75)';
-  c.fillText(s.appSubHeader, PAD, 88);
+  c.fillText(s.appSubHeader, PAD, 70);
 
   // Today's date — top right of header
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
