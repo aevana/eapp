@@ -59,12 +59,12 @@
 
       <!-- Summary stat row -->
       <div class="home-stats-row">
-        <div class="home-stat" id="hs-customers">
-          <div class="home-stat-value" id="hs-val-customers">—</div>
+        <div class="home-stat home-stat-primary" id="hs-customers">
+          <div class="home-stat-value home-stat-value-lg" id="hs-val-customers">—</div>
           <div class="home-stat-label">Customers</div>
         </div>
-        <div class="home-stat" id="hs-running">
-          <div class="home-stat-value" id="hs-val-running">—</div>
+        <div class="home-stat home-stat-primary" id="hs-running">
+          <div class="home-stat-value home-stat-value-lg" id="hs-val-running">—</div>
           <div class="home-stat-label">Running Sets</div>
         </div>
         <div class="home-stat home-stat-danger" id="hs-pending">
@@ -75,16 +75,11 @@
           <div class="home-stat-value" id="hs-val-collected">—</div>
           <div class="home-stat-label">Total Collected</div>
         </div>
-        <div class="home-stat home-stat-warning" id="hs-charges-paid">
-          <div class="home-stat-value" id="hs-val-charges-paid">—</div>
-          <div class="home-stat-label">Total Charges Paid</div>
-        </div>
       </div>
 
       <!-- Running sets section -->
       <div class="home-section-header">
         <span>⚡ Currently Running Sets</span>
-        <span class="home-section-badge" id="hs-running-badge">0</span>
       </div>
       <div id="home-running-list">
         <p class="empty-row">Loading…</p>
@@ -425,6 +420,18 @@
         <div class="about-section">
           <h3 class="about-section-title">🚀 What's New</h3>
           <div class="changelog-list">
+            <div class="changelog-entry changelog-entry--latest">
+              <div class="changelog-version">v3.0.0 <span class="changelog-badge">Latest</span></div>
+              <div class="changelog-date">Mar 2026</div>
+              <ul class="changelog-items">
+                <li>Running Sets card — removed duplicate count badge from section header</li>
+                <li>Running Sets card — removed ₹/day rate line for cleaner layout</li>
+                <li>Running Sets card — quantity shown as a distinct purple corner badge</li>
+                <li>30-day trial period gate — app locks after 1 month of first install</li>
+                <li>Access token unlock — enter token to permanently unlock the app</li>
+                <li>Trial expired screen — red background with WhatsApp contact button</li>
+              </ul>
+            </div>
             <div class="changelog-entry">
               <div class="changelog-version">v2.1.0</div>
               <div class="changelog-date">Mar 2026</div>
@@ -508,7 +515,7 @@
               <div class="about-contact-row"><span class="about-contact-lbl">Company</span><span>iApp Solutions Pvt. Ltd.</span></div>
               <div class="about-contact-row"><span class="about-contact-lbl">Platform</span><span>Web &amp; Android (via Capacitor)</span></div>
             </div>
-            <a class="btn-whatsapp about-wa-btn" href="https://wa.me/919999999999?text=Hi%20iApp%20Support%2C%20I%20need%20help%20with%20Electricity%20Bills%20Tracker." target="_blank" rel="noopener">
+            <a class="btn-whatsapp about-wa-btn" href="https://wa.me/919908865378?text=Hi%20iApp%20Support%2C%20I%20need%20help%20with%20Electricity%20Bills%20Tracker." target="_blank" rel="noopener">
               💬 Chat on WhatsApp
             </a>
             <p class="about-copyright">© 2026 iApp Solutions Pvt. Ltd. All Rights Reserved.</p>

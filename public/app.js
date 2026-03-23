@@ -69,7 +69,69 @@ fetch('version.txt')
   })
   .catch(() => {});
 
+// ── Trial Gate ─────────────────────────────────────────────────
+const TRIAL_KEY   = 'app_first_open';
+const TOKEN_KEY   = 'app_access_token';
+const ACCESS_TOKEN = '9908865378';
+const TRIAL_MS    = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function isTrialExpired() {
+  const stored = localStorage.getItem(TRIAL_KEY);
+  if (!stored) {
+    localStorage.setItem(TRIAL_KEY, String(Date.now()));
+    return false;
+  }
+  return (Date.now() - parseInt(stored, 10)) > TRIAL_MS;
+}
+
+function hasValidToken() {
+  return localStorage.getItem(TOKEN_KEY) === ACCESS_TOKEN;
+}
+
+function showTrialExpiredScreen() {
+  document.body.innerHTML = `
+    <div class="trial-overlay">
+      <div class="trial-box">
+        <div class="trial-icon">🔒</div>
+        <h2 class="trial-title">Trial Period Ended</h2>
+        <p class="trial-msg">
+          Your 1‑month free trial has been completed.<br>
+          Please contact us on WhatsApp to continue.
+        </p>
+        <a class="trial-wa-btn" href="https://wa.me/919908865378" target="_blank">
+          💬 Contact on WhatsApp
+        </a>
+        <div class="trial-token-section">
+          <p class="trial-token-label">Have an access token?</p>
+          <div class="trial-token-row">
+            <input id="trial-token-input" type="password" placeholder="Enter access token" />
+            <button onclick="unlockWithToken()">Unlock</button>
+          </div>
+          <p id="trial-token-error" class="trial-token-error"></p>
+        </div>
+      </div>
+    </div>`;
+}
+
+function unlockWithToken() {
+  const val = document.getElementById('trial-token-input').value.trim();
+  if (val === ACCESS_TOKEN) {
+    localStorage.setItem(TOKEN_KEY, ACCESS_TOKEN);
+    location.reload();
+  } else {
+    const err = document.getElementById('trial-token-error');
+    err.textContent = 'Invalid token. Please try again.';
+    setTimeout(() => { err.textContent = ''; }, 3000);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  // Trial / token gate
+  if (isTrialExpired() && !hasValidToken()) {
+    showTrialExpiredScreen();
+    return;
+  }
+
   // Main tab navigation
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -170,31 +232,27 @@ async function loadHome() {
       apiFetch('/api/monthly-charges'),
     ]);
 
-    // ── compute totals
+    // ── compute totals (Pending & Collected only for active/running bills)
     let totalPending = 0, totalCollected = 0, runningCount = 0;
     const runningCards = [];
 
     data.forEach(cust => {
       const bills = cust.bills || [];
       bills.forEach(b => {
-        totalPending   += b.pendingAmount   || 0;
-        totalCollected += b.collectedAmount || 0;
         if (b.status === 'active') {
+          totalPending   += b.pendingAmount   || 0;
+          totalCollected += b.collectedAmount || 0;
           runningCount++;
           runningCards.push({ cust, bill: b });
         }
       });
     });
 
-    const totalChargesPaid = charges.reduce((s, c) => s + (c.projectedAmount || 0), 0);
-
     // ── stat row
-    document.getElementById('hs-val-customers').textContent    = data.length;
-    document.getElementById('hs-val-running').textContent      = runningCount;
-    document.getElementById('hs-val-pending').textContent      = '₹' + totalPending.toLocaleString();
-    document.getElementById('hs-val-collected').textContent    = '₹' + totalCollected.toLocaleString();
-    document.getElementById('hs-val-charges-paid').textContent = '₹' + totalChargesPaid.toLocaleString();
-    document.getElementById('hs-running-badge').textContent  = runningCount;
+    document.getElementById('hs-val-customers').textContent = data.length;
+    document.getElementById('hs-val-running').textContent   = runningCount;
+    document.getElementById('hs-val-pending').textContent   = '₹' + totalPending.toLocaleString();
+    document.getElementById('hs-val-collected').textContent = '₹' + totalCollected.toLocaleString();
 
     // ── running set cards
     const list = document.getElementById('home-running-list');
@@ -213,6 +271,7 @@ async function loadHome() {
       return `
         <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
           <div class="home-run-avatar">${initials}</div>
+          <div class="home-run-qty-badge">${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</div>
           <div class="home-run-body">
             <div class="home-run-top">
               <span class="home-run-name">${esc(cust.name)}</span>
@@ -221,8 +280,6 @@ async function loadHome() {
             <div class="home-run-meta">
               <span>📅 ${fmtDate(bill.startDate)}</span>
               <span>⚡ ${days} day${days !== 1 ? 's' : ''} running</span>
-              <span>📦 ${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</span>
-              <span>₹${bill.perDayCharge}/day</span>
             </div>
             <div class="home-run-amounts">
               <div class="home-run-amt-block">
