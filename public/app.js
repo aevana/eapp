@@ -170,31 +170,28 @@ async function loadHome() {
       apiFetch('/api/monthly-charges'),
     ]);
 
-    // ── compute totals
+    // ── compute totals (Pending & Collected only for active/running bills)
     let totalPending = 0, totalCollected = 0, runningCount = 0;
     const runningCards = [];
 
     data.forEach(cust => {
       const bills = cust.bills || [];
       bills.forEach(b => {
-        totalPending   += b.pendingAmount   || 0;
-        totalCollected += b.collectedAmount || 0;
         if (b.status === 'active') {
+          totalPending   += b.pendingAmount   || 0;
+          totalCollected += b.collectedAmount || 0;
           runningCount++;
           runningCards.push({ cust, bill: b });
         }
       });
     });
 
-    const totalChargesPaid = charges.reduce((s, c) => s + (c.projectedAmount || 0), 0);
-
     // ── stat row
-    document.getElementById('hs-val-customers').textContent    = data.length;
-    document.getElementById('hs-val-running').textContent      = runningCount;
-    document.getElementById('hs-val-pending').textContent      = '₹' + totalPending.toLocaleString();
-    document.getElementById('hs-val-collected').textContent    = '₹' + totalCollected.toLocaleString();
-    document.getElementById('hs-val-charges-paid').textContent = '₹' + totalChargesPaid.toLocaleString();
-    document.getElementById('hs-running-badge').textContent  = runningCount;
+    document.getElementById('hs-val-customers').textContent = data.length;
+    document.getElementById('hs-val-running').textContent   = runningCount;
+    document.getElementById('hs-val-pending').textContent   = '₹' + totalPending.toLocaleString();
+    document.getElementById('hs-val-collected').textContent = '₹' + totalCollected.toLocaleString();
+    document.getElementById('hs-running-badge').textContent = runningCount;
 
     // ── running set cards
     const list = document.getElementById('home-running-list');

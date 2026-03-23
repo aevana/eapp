@@ -848,6 +848,9 @@ body {
   gap: .6rem;
   margin-bottom: 1.25rem;
 }
+.home-stat-value-lg {
+  font-size: 2rem !important;
+}
 @media (max-width: 480px) { .home-stats-row { grid-template-columns: repeat(2, 1fr); } }
 
 .home-stat {
