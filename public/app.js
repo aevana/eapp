@@ -191,7 +191,6 @@ async function loadHome() {
     document.getElementById('hs-val-running').textContent   = runningCount;
     document.getElementById('hs-val-pending').textContent   = '₹' + totalPending.toLocaleString();
     document.getElementById('hs-val-collected').textContent = '₹' + totalCollected.toLocaleString();
-    document.getElementById('hs-running-badge').textContent = runningCount;
 
     // ── running set cards
     const list = document.getElementById('home-running-list');
@@ -210,6 +209,7 @@ async function loadHome() {
       return `
         <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
           <div class="home-run-avatar">${initials}</div>
+          <div class="home-run-qty-badge">${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</div>
           <div class="home-run-body">
             <div class="home-run-top">
               <span class="home-run-name">${esc(cust.name)}</span>
@@ -218,8 +218,6 @@ async function loadHome() {
             <div class="home-run-meta">
               <span>📅 ${fmtDate(bill.startDate)}</span>
               <span>⚡ ${days} day${days !== 1 ? 's' : ''} running</span>
-              <span>📦 ${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</span>
-              <span>₹${bill.perDayCharge}/day</span>
             </div>
             <div class="home-run-amounts">
               <div class="home-run-amt-block">

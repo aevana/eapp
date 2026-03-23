@@ -900,6 +900,7 @@ body {
 }
 
 .home-run-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: .9rem;
@@ -912,8 +913,21 @@ body {
   cursor: pointer;
   transition: box-shadow .15s, transform .15s;
   box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  overflow: hidden;
 }
 .home-run-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-1px); }
+.home-run-qty-badge {
+  position: absolute;
+  top: 0; right: 0;
+  background: #7c3aed;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .22rem .55rem;
+  border-bottom-left-radius: 10px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
 
 .home-run-avatar {
   flex-shrink: 0;
