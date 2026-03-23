@@ -1026,6 +1026,16 @@ body {
 /* ── About: Changelog ─────────────────────────────────────── */
 .changelog-list  { padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: .9rem; }
 .changelog-entry { border-left: 3px solid var(--primary); padding-left: .9rem; }
+.changelog-entry--latest { border-left-color: #7c3aed; }
+.changelog-entry--latest .changelog-version { color: #7c3aed; }
+.changelog-badge {
+  display: inline-block;
+  background: #7c3aed; color: #fff;
+  font-size: .6rem; font-weight: 700;
+  padding: .1rem .45rem; border-radius: 50px;
+  vertical-align: middle; margin-left: .35rem;
+  letter-spacing: .4px; text-transform: uppercase;
+}
 .changelog-version { font-size: .85rem; font-weight: 700; color: var(--primary); }
 .changelog-date    { font-size: .72rem; color: var(--gray-400); margin-bottom: .35rem; }
 .changelog-items   { margin: 0; padding-left: 1.1rem; font-size: .82rem; color: var(--gray-600); line-height: 1.75; }
