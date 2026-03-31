@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transcoding-on-Output M2 — Epic DV-13012</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      display: none;
+      position: absolute;
+      inset: 0;
+      padding: 60px 80px;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .slide.active { display: flex; }
+
+    /* ── colour tokens ── */
+    :root {
+      --blue:   #4f8ef7;
+      --teal:   #38bdf8;
+      --green:  #4ade80;
+      --yellow: #facc15;
+      --red:    #f87171;
+      --purple: #c084fc;
+      --muted:  #64748b;
+    }
+
+    /* ── TITLE SLIDE ── */
+    .slide-title { background: linear-gradient(135deg, #0f1117 0%, #1e293b 100%); }
+    .slide-title .eyebrow {
+      font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--teal); margin-bottom: 16px;
+    }
+    .slide-title h1 {
+      font-size: 52px; font-weight: 700; line-height: 1.15;
+      background: linear-gradient(90deg, #fff 0%, var(--teal) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+    .slide-title .subtitle {
+      font-size: 18px; color: #94a3b8; margin-bottom: 40px;
+    }
+    .epic-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 8px; padding: 10px 18px;
+      font-size: 13px; color: var(--blue);
+    }
+    .epic-badge span { color: #94a3b8; }
+
+    /* ── SECTION HEADER SLIDES ── */
+    .slide-section {
+      background: linear-gradient(135deg, #0f172a 0%, #1a1f35 100%);
+      align-items: center; text-align: center;
+    }
+    .slide-section .section-num {
+      font-size: 90px; font-weight: 800; opacity: 0.06;
+      position: absolute; top: 40px; left: 80px;
+      color: var(--blue);
+    }
+    .slide-section h2 {
+      font-size: 44px; font-weight: 700;
+      background: linear-gradient(90deg, var(--blue), var(--teal));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .slide-section .tagline { font-size: 18px; color: #64748b; margin-top: 12px; }
+
+    /* ── CONTENT SLIDES ── */
+    .slide-content { background: #0f1117; }
+    .slide h2 {
+      font-size: 28px; font-weight: 600; color: #fff;
+      border-left: 4px solid var(--blue);
+      padding-left: 16px; margin-bottom: 32px;
+    }
+
+    /* cards */
+    .cards { display: flex; gap: 24px; }
+    .card {
+      flex: 1; background: #1e293b; border-radius: 12px;
+      padding: 24px; border: 1px solid #334155;
+    }
+    .card .card-tag {
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 10px;
+    }
+    .card .card-title { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+    .card .card-customer { font-size: 13px; color: var(--teal); margin-bottom: 12px; }
+    .card p { font-size: 14px; color: #94a3b8; line-height: 1.6; }
+    .card .jira-link {
+      display: inline-block; margin-top: 12px;
+      font-size: 12px; color: var(--blue);
+      background: #0f172a; border-radius: 6px; padding: 4px 10px;
+      border: 1px solid #1e40af; text-decoration: none;
+    }
+
+    /* bullet list */
+    .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+    .bullet-list li {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: #1e293b; border-radius: 10px; padding: 16px 20px;
+      border: 1px solid #334155;
+    }
+    .bullet-list li .icon {
+      width: 28px; height: 28px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0; margin-top: 1px;
+    }
+    .bullet-list li .text { font-size: 15px; color: #cbd5e1; line-height: 1.5; }
+    .bullet-list li .text strong { color: #fff; }
+
+    /* two-col layout */
+    .two-col { display: flex; gap: 32px; }
+    .two-col .col { flex: 1; }
+    .col-title {
+      font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* code / data blocks */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .data-table th {
+      background: #1e293b; color: #94a3b8; font-weight: 500;
+      padding: 10px 14px; text-align: left; border-bottom: 1px solid #334155;
+    }
+    .data-table td {
+      padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #cbd5e1;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .highlight td { color: #facc15; }
+    .data-table .changed td { background: #2d1515; color: var(--red); }
+    .data-table .ok td { background: #0f2318; color: var(--green); }
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
+    }
+    .badge-red { background: #450a0a; color: var(--red); }
+    .badge-green { background: #052e16; color: var(--green); }
+    .badge-yellow { background: #422006; color: var(--yellow); }
+
+    /* pill row */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .pill {
+      font-size: 13px; border-radius: 20px; padding: 6px 16px;
+      border: 1px solid; font-weight: 500;
+    }
+    .pill-blue  { border-color: #1d4ed8; color: var(--blue);   background: #0d1f4a; }
+    .pill-teal  { border-color: #0e7490; color: var(--teal);   background: #0c2d3a; }
+    .pill-green { border-color: #15803d; color: var(--green);  background: #0a2218; }
+    .pill-yellow{ border-color: #92400e; color: var(--yellow); background: #2d1f06; }
+
+    /* callout */
+    .callout {
+      border-radius: 10px; padding: 16px 20px;
+      border-left: 4px solid; font-size: 14px; line-height: 1.6;
+      margin-top: 20px;
+    }
+    .callout-yellow { border-color: var(--yellow); background: #1c1607; color: #fef08a; }
+    .callout-blue   { border-color: var(--blue);   background: #0c1a3a; color: #bfdbfe; }
+    .callout-red    { border-color: var(--red);    background: #1c0707; color: #fecaca; }
+
+    /* summary grid */
+    .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+    .summary-card {
+      background: #1e293b; border-radius: 12px; padding: 24px;
+      border: 1px solid #334155; text-align: center;
+    }
+    .summary-card .s-icon { font-size: 32px; margin-bottom: 12px; }
+    .summary-card .s-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+    .summary-card .s-value { font-size: 22px; font-weight: 700; color: #fff; margin: 6px 0; }
+    .summary-card .s-sub { font-size: 13px; color: #94a3b8; }
+
+    /* nav */
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 52px; background: #1e293b; border-top: 1px solid #334155;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; z-index: 100;
+    }
+    .nav button {
+      background: #334155; border: none; color: #e2e8f0;
+      padding: 8px 20px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 500; transition: background 0.15s;
+    }
+    .nav button:hover { background: #4f8ef7; color: #fff; }
+    .nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .nav .counter { font-size: 13px; color: #64748b; }
+    .nav .slide-title-nav { font-size: 12px; color: #475569; max-width: 400px; text-align: center; }
+
+    /* progress bar */
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--blue), var(--teal));
+      transition: width 0.3s ease; z-index: 200;
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<div class="deck">
+
+  <!-- ── SLIDE 1: Title ── -->
+  <div class="slide slide-title active" data-title="Title">
+    <div class="eyebrow">Epic Deep Dive &nbsp;·&nbsp; DV-13012</div>
+    <h1>Transcoding-on-Output<br>M2</h1>
+    <div class="subtitle">Fixing RampID constraint violations &amp; enabling common-domain transcoding</div>
+    <a class="epic-badge" href="https://liveramp.atlassian.net/browse/DV-13012" target="_blank">
+      🔗 <span>Epic:</span> DV-13012
+    </a>
+  </div>
+
+  <!-- ── SLIDE 2: Section — Why ── -->
+  <div class="slide slide-section" data-title="Why this Epic?">
+    <div class="section-num">01</div>
+    <h2>Why this Epic?</h2>
+    <div class="tagline">Two escalated customer failures drove this work</div>
+  </div>
+
+  <!-- ── SLIDE 3: Customer Requirements ── -->
+  <div class="slide slide-content" data-title="Customer Requirements">
+    <h2>Customer Requirements</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="card-tag">SRV-2440 &nbsp;·&nbsp; Requirement 1</div>
+        <div class="card-title">RampID append + column conflict</div>
+        <div class="card-customer">Customer: Best Buy</div>
+        <p>Query failure with message:<br><br>
+          <em>"RampId identifier field cannot be appended with another column"</em>
+        </p>
+        <a class="jira-link" href="https://liveramp.atlassian.net/browse/SRV-2440" target="_blank">
+          SRV-2440 ↗
+        </a>
+      </div>
+      <div class="card">
+        <div class="card-tag">SRV · Requirement 2</div>
+        <div class="card-title">RampID projection not permitted</div>
+        <div class="card-customer">Customer: Virgin Voyages × Virgin Red</div>
+        <p>List Query has a RampID projection block and reports Fail.<br><br>
+          Error: <em>"Column 'red.rampid' has been projected as 'rampid' which is not permitted for projection."</em>
+        </p>
+        <div class="pill-row">
+          <span class="pill pill-teal">CR Owner: Virgin Voyages</span>
+          <span class="pill pill-blue">CR Partner: Virgin Red</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 4: Section — POC ── -->
+  <div class="slide slide-section" data-title="POC">
+    <div class="section-num">02</div>
+    <h2>Proof of Concept</h2>
+    <div class="tagline">Performance validation &amp; domain transcoding design</div>
+  </div>
+
+  <!-- ── SLIDE 5: POC Details ── -->
+  <div class="slide slide-content" data-title="POC Details">
+    <h2>POC — What was validated</h2>
+    <ul class="bullet-list">
+      <li>
+        <div class="icon" style="background:#0c1a3a;">⚡</div>
+        <div class="text">
+          <strong>Performance Optimization</strong><br>
+          List Question formatting completely removed — simpler, faster pipeline.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#0a2218;">📊</div>
+        <div class="text">
+          <strong>Benchmarking</strong><br>
+          Load-tested with <strong>1K, 1M, and 10M record sizes</strong> using distinct domains.
+          Results tracked in the benchmarking spreadsheet.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#1c1607;">🔑</div>
+        <div class="text">
+          <strong>CR Owner as Common Transcoding Domain</strong><br>
+          If the CR Owner org does not have Identity — it is now <strong>mandated</strong>.
+          This ensures a stable, consistent transcoding anchor across all collaborations.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── SLIDE 6: Section — What's Implemented ── -->
+  <div class="slide slide-section" data-title="What was Implemented">
+    <div class="section-num">03</div>
+    <h2>What was Implemented</h2>
+    <div class="tagline">Three core deliverables shipped under this epic</div>
+  </div>
+
+  <!-- ── SLIDE 7: Implementation ── -->
+  <div class="slide slide-content" data-title="Implementation Details">
+    <h2>Implementation</h2>
+    <ul class="bullet-list">
+      <li>
+        <div class="icon" style="background:#0a2218; color:var(--green);">✓</div>
+        <div class="text">
+          <strong>Constraint Violation Fixes on List Questions</strong><br>
+          Resolved the root cause of RampID projection and column-append errors that were failing customer queries.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#0c1a3a; color:var(--blue);">🔄</div>
+        <div class="text">
+          <strong>Common-Domain Transcoding</strong> &nbsp;<span class="badge badge-yellow">Transcoding + RampIDEncoding FF</span><br>
+          Every dataset is transcoded to the CR Owner's domain. Controlled under a feature flag.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#1c0a2e; color:var(--purple);">📤</div>
+        <div class="text">
+          <strong>Export Transcoding</strong><br>
+          If RampID is part of output fields, the dataset is re-encoded to the <em>Partner's destination domain</em> at export time.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── SLIDE 8: Additional Coverage ── -->
+  <div class="slide slide-content" data-title="Additional Coverage">
+    <h2>Additionally Covered &nbsp;<a href="https://liveramp.atlassian.net/browse/DV-13417" target="_blank" style="font-size:14px; color:var(--blue);">DV-13417 ↗</a></h2>
+    <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Update feature flipper logic for unmatched records</p>
+    <ul class="bullet-list">
+      <li>
+        <div class="icon" style="background:#0f2318; color:var(--green);">📌</div>
+        <div class="text">
+          <strong>Existing CRQs:</strong> No change in behavior, even if the account-level flag is enabled.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#0c1a3a; color:var(--blue);">🆕</div>
+        <div class="text">
+          <strong>New CRQs:</strong> <code style="background:#1e293b; padding:2px 6px; border-radius:4px;">RETAIN_UNMATCHED_RECORDS</code> capability applied by default.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#1c1607; color:var(--yellow);">⚙️</div>
+        <div class="text">
+          <strong>Opt-out for new CRQs:</strong> Set <code style="background:#1e293b; padding:2px 6px; border-radius:4px;">SKIP_UNMATCHED_RECORDS = true</code> to disable default behavior.
+        </div>
+      </li>
+      <li>
+        <div class="icon" style="background:#1c0707; color:var(--red);">🔁</div>
+        <div class="text">
+          <strong>Existing CRQs that want the capability:</strong> Remove the migrated <code style="background:#1e293b; padding:2px 6px; border-radius:4px;">SKIP_UNMATCHED_RECORDS</code> property or set it to <code style="background:#1e293b; padding:2px 6px; border-radius:4px;">false</code>.
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── SLIDE 9: Section — Challenges ── -->
+  <div class="slide slide-section" data-title="Challenges">
+    <div class="section-num">04</div>
+    <h2>Challenges</h2>
+    <div class="tagline">Count mismatches &amp; feature flag testing scope</div>
+  </div>
+
+  <!-- ── SLIDE 10: Count Mismatch ── -->
+  <div class="slide slide-content" data-title="Count Mismatch Challenge">
+    <h2>Challenge — Count Mismatches</h2>
+    <p style="font-size:14px; color:#64748b; margin-bottom:20px;">
+      Dataset: 100 records &nbsp;·&nbsp; 90 valid RampIDs &nbsp;·&nbsp; 5 Unmatched &nbsp;·&nbsp; 5 invalid RampIDs
+    </p>
+    <div class="two-col">
+      <div class="col">
+        <div class="col-title">Before (old behaviour)</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Dataset</th><th>Domain</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            <tr class="ok"><td>DS1</td><td>Owner</td><td>90</td></tr>
+            <tr class="ok"><td>DS1</td><td>Partner</td><td>90</td></tr>
+            <tr class="ok"><td>DS2</td><td>Partner</td><td>90</td></tr>
+          </tbody>
+        </table>
+        <div class="callout callout-blue" style="margin-top:16px;">All datasets consistently return 90 — only valid RampIDs.</div>
+      </div>
+      <div class="col">
+        <div class="col-title">After (new behaviour)</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Dataset</th><th>Domain</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            <tr class="changed"><td>DS1</td><td>Owner</td><td>100 ⚠</td></tr>
+            <tr class="ok"><td>DS1</td><td>Partner</td><td>90</td></tr>
+            <tr class="ok"><td>DS2</td><td>Partner</td><td>90</td></tr>
+          </tbody>
+        </table>
+        <div class="callout callout-yellow" style="margin-top:16px;">Owner dataset skips transcoding → includes all 100 records (unmatched + invalid).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 11: FF Testing ── -->
+  <div class="slide slide-content" data-title="Feature Flag Testing">
+    <h2>Challenge — Feature Flag Scope</h2>
+    <div class="callout callout-yellow">
+      All three features are gated behind the <strong>Transcoding + RampIDEncoding</strong> feature flag. Thorough testing under this flag is required before broader rollout.
+    </div>
+    <div class="pill-row" style="margin-top: 28px;">
+      <span class="pill pill-blue">Constraint Violation Fixes</span>
+      <span class="pill pill-teal">Common-Domain Transcoding</span>
+      <span class="pill pill-green">Export Transcoding</span>
+    </div>
+    <div class="callout callout-blue" style="margin-top: 28px;">
+      Each of these capabilities must be validated end-to-end with the FF enabled — including count consistency, RampID encoding correctness, and export output verification.
+    </div>
+  </div>
+
+  <!-- ── SLIDE 12: Summary ── -->
+  <div class="slide slide-content" data-title="Summary">
+    <h2>Summary</h2>
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="s-icon">👥</div>
+        <div class="s-label">Customers Unblocked</div>
+        <div class="s-value">2+</div>
+        <div class="s-sub">Best Buy · Virgin Voyages</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">🔧</div>
+        <div class="s-label">Core Deliverables</div>
+        <div class="s-value">3</div>
+        <div class="s-sub">Fixes · Transcoding · Exports</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">📋</div>
+        <div class="s-label">Also Shipped</div>
+        <div class="s-value">DV-13417</div>
+        <div class="s-sub">Unmatched Records FF Logic</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">⚡</div>
+        <div class="s-label">Benchmarked At</div>
+        <div class="s-value">1K · 1M · 10M</div>
+        <div class="s-sub">Distinct domain record sizes</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">🏴</div>
+        <div class="s-label">Feature Flag</div>
+        <div class="s-value">Required</div>
+        <div class="s-sub">Transcoding + RampIDEncoding</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">⚠️</div>
+        <div class="s-label">Key Watch-out</div>
+        <div class="s-value">Count Delta</div>
+        <div class="s-sub">Owner DS: 100 vs Partner DS: 90</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- ── Navigation ── -->
+<nav class="nav">
+  <button id="prev" onclick="navigate(-1)" disabled>← Prev</button>
+  <div style="text-align:center;">
+    <div class="counter" id="counter">1 / 12</div>
+    <div class="slide-title-nav" id="slideLabel">Title</div>
+  </div>
+  <button id="next" onclick="navigate(1)">Next →</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+
+  function navigate(dir) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(slides.length - 1, current + dir));
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+    document.getElementById('slideLabel').textContent = slides[current].dataset.title || '';
+    document.getElementById('prev').disabled = current === 0;
+    document.getElementById('next').disabled = current === slides.length - 1;
+    document.getElementById('progress').style.width = `${((current + 1) / slides.length) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+  });
+
+  // init progress
+  document.getElementById('progress').style.width = `${(1 / slides.length) * 100}%`;
+</script>
+</body>
+</html>
