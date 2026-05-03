@@ -243,14 +243,15 @@ async function loadHome() {
 
     // ── aggregate active bills by customer
     let totalPending = 0, totalCollected = 0, totalQuantity = 0;
-    const customerBills = new Map(); // customerId -> { cust, bills: [], totalQty: 0, ... }
+    const customerBills = new Map(); // customerId -> { cust, bills: [], totalQty: 0, totalDays: 0, ... }
+    const today = new Date(); today.setHours(0,0,0,0);
 
     data.forEach(cust => {
       const bills = cust.bills || [];
       const activeBills = bills.filter(b => b.status === 'active');
 
       if (activeBills.length > 0) {
-        let custQty = 0, custPending = 0, custCollected = 0;
+        let custQty = 0, custPending = 0, custCollected = 0, custDays = 0;
         activeBills.forEach(b => {
           custQty += b.quantity || 1;
           custPending += b.pendingAmount || 0;
@@ -258,11 +259,18 @@ async function loadHome() {
           totalPending += b.pendingAmount || 0;
           totalCollected += b.collectedAmount || 0;
           totalQuantity += b.quantity || 1;
+
+          const start = new Date(b.startDate); start.setHours(0,0,0,0);
+          const stop  = b.stopDate ? new Date(b.stopDate) : today;
+          stop.setHours(0,0,0,0);
+          const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+          custDays += days;
         });
         customerBills.set(cust.id, {
           cust,
           bills: activeBills,
           totalQty: custQty,
+          totalDays: custDays,
           totalPending: custPending,
           totalCollected: custCollected,
         });
@@ -280,13 +288,8 @@ async function loadHome() {
         return lineA.localeCompare(lineB) || a.cust.name.localeCompare(b.cust.name);
       });
     } else if (homeSortBy === 'days') {
-      const today = new Date(); today.setHours(0,0,0,0);
       runningCards.sort((a, b) => {
-        const startA = new Date(a.bills[0].startDate); startA.setHours(0,0,0,0);
-        const startB = new Date(b.bills[0].startDate); startB.setHours(0,0,0,0);
-        const daysA = Math.max(1, Math.round((today - startA) / 86400000) + 1);
-        const daysB = Math.max(1, Math.round((today - startB) / 86400000) + 1);
-        return daysB - daysA;
+        return b.totalDays - a.totalDays;
       });
     } else if (homeSortBy === 'sets') {
       runningCards.sort((a, b) => {
@@ -307,8 +310,7 @@ async function loadHome() {
       return;
     }
 
-    const today = new Date(); today.setHours(0,0,0,0);
-    list.innerHTML = runningCards.map(({ cust, bills, totalQty }) => {
+    list.innerHTML = runningCards.map(({ cust, bills, totalQty, totalDays }) => {
       const initials = cust.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
 
       let grandTotal = 0;
@@ -332,7 +334,7 @@ async function loadHome() {
               <span class="home-run-mobile">${esc(cust.mobile)}</span>
             </div>
             <div class="home-bill-list">${billRows}</div>
-            <div class="home-bill-total">Total: ₹${grandTotal.toLocaleString()}</div>
+            <div class="home-bill-total">Days: ${totalDays}    Total: ₹${grandTotal.toLocaleString()}</div>
           </div>
         </div>
       `;
