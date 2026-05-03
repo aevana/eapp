@@ -330,6 +330,7 @@ async function loadCustomers() {
 }
 
 function renderCustomers(list) {
+  if (viewByLine) { renderCustomersByLine(list); return; }
   const grid = document.getElementById('customer-grid');
   if (!list.length) {
     grid.innerHTML = '<p class="empty-row">No customers found.</p>';
@@ -346,7 +347,7 @@ function renderCustomers(list) {
         <div class="cust-card-top">
           <div class="cust-card-num">${idx + 1}</div>
           <div class="cust-card-info">
-            <div class="cust-card-name">${esc(c.name)}</div>
+            <div class="cust-card-name">${esc(c.name)}${c.line ? ` <span class="cust-line-badge">${esc(c.line)}</span>` : ''}</div>
             <div class="cust-card-mobile">${esc(c.mobile)}</div>
             <div class="cust-card-stats">
               <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
@@ -364,6 +365,68 @@ function renderCustomers(list) {
         </div>
       </div>
     `;
+  }).join('');
+}
+
+// ── View by Line toggle ───────────────────────────────────────
+
+let viewByLine = false;
+
+function toggleViewByLine() {
+  viewByLine = !viewByLine;
+  const btn = document.getElementById('btn-view-by-line');
+  if (btn) btn.classList.toggle('active', viewByLine);
+  renderCustomers(trackerData);
+}
+
+function renderCustomersByLine(list) {
+  const grid = document.getElementById('customer-grid');
+  const lines = ['L1','L2','L3','L4','L5','L6'];
+  const grouped = {};
+  lines.forEach(l => grouped[l] = []);
+  grouped['—'] = [];
+  list.forEach(c => {
+    const key = lines.includes(c.line) ? c.line : '—';
+    grouped[key].push(c);
+  });
+  const allLines = [...lines, '—'].filter(l => grouped[l].length > 0);
+  if (!allLines.length) {
+    grid.innerHTML = '<p class="empty-row">No customers found.</p>';
+    return;
+  }
+  grid.innerHTML = allLines.map(line => {
+    const customers = grouped[line];
+    const cards = customers.map((c, idx) => {
+      const bills          = c.bills || [];
+      const activeBills    = bills.filter(b => b.status === 'active');
+      const totalPending   = bills.reduce((s, b) => s + (b.pendingAmount   || 0), 0);
+      const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
+      const hasActive      = activeBills.length > 0;
+      return `
+        <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+          <div class="cust-card-top">
+            <div class="cust-card-num">${idx + 1}</div>
+            <div class="cust-card-info">
+              <div class="cust-card-name">${esc(c.name)}</div>
+              <div class="cust-card-mobile">${esc(c.mobile)}</div>
+              <div class="cust-card-stats">
+                <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
+                <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
+                <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
+                <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="cust-card-actions" onclick="event.stopPropagation()">
+            ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+            <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
+            <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
+            <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    return `<div class="line-group"><div class="line-group-header">${line}</div><div class="line-group-cards">${cards}</div></div>`;
   }).join('');
 }
 
@@ -402,6 +465,7 @@ function renderCustomerPage(customer, bills) {
     <div class="cdetail-info-card">
       <div class="cdetail-info-row"><span>Name</span><strong>${esc(customer.name)}</strong></div>
       <div class="cdetail-info-row"><span>Mobile</span><strong>${esc(customer.mobile)}</strong></div>
+      <div class="cdetail-info-row"><span>Line</span><strong>${esc(customer.line || '—')}</strong></div>
       <div class="cdetail-info-row"><span>Address</span><strong>${esc(customer.address || '—')}</strong></div>
       <div class="cdetail-info-row"><span>Registered</span><strong>${fmtDate(customer.createdAt)}</strong></div>
     </div>
@@ -496,6 +560,7 @@ async function submitAddCustomer(e) {
   const body = {
     name:    document.getElementById('c-name').value.trim(),
     mobile:  document.getElementById('c-mobile').value.trim(),
+    line:    document.getElementById('c-line').value,
     address: document.getElementById('c-address').value.trim(),
   };
   try {
@@ -526,6 +591,7 @@ function openEditCustomer(id) {
   document.getElementById('ec-id').value      = c.id;
   document.getElementById('ec-name').value    = c.name;
   document.getElementById('ec-mobile').value  = c.mobile;
+  document.getElementById('ec-line').value    = c.line || '';
   document.getElementById('ec-address').value = c.address || '';
   openModal('modal-edit-customer');
 }
@@ -540,6 +606,7 @@ async function submitEditCustomer(e) {
   const body = {
     name:    document.getElementById('ec-name').value.trim(),
     mobile:  document.getElementById('ec-mobile').value.trim(),
+    line:    document.getElementById('ec-line').value,
     address: document.getElementById('ec-address').value.trim(),
   };
   try {

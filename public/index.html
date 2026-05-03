@@ -94,7 +94,10 @@
       <div id="customer-list-view">
         <div class="section-header">
           <h2>Customer Management</h2>
-          <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+            <button id="btn-view-by-line" class="btn btn-secondary" onclick="toggleViewByLine()">View by Line</button>
+            <button class="btn btn-primary" onclick="openModal('modal-add-customer')">+ Add Customer</button>
+          </div>
         </div>
         <div class="search-bar">
           <input type="text" id="customer-search" placeholder="🔍 Search by name or mobile…" oninput="filterCustomers()" />
@@ -582,6 +585,18 @@
           <input type="tel" id="c-mobile" required placeholder="e.g. 9876543210" pattern="[0-9]{10}" title="10-digit mobile number" />
         </div>
         <div class="form-group">
+          <label>Line</label>
+          <select id="c-line">
+            <option value="">— Select Line —</option>
+            <option value="L1">L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+            <option value="L4">L4</option>
+            <option value="L5">L5</option>
+            <option value="L6">L6</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Address</label>
           <textarea id="c-address" rows="3" placeholder="Street, Village, District…"></textarea>
         </div>
@@ -609,6 +624,18 @@
         <div class="form-group">
           <label>Mobile Number <span class="req">*</span></label>
           <input type="tel" id="ec-mobile" required pattern="[0-9]{10}" title="10-digit mobile number" />
+        </div>
+        <div class="form-group">
+          <label>Line</label>
+          <select id="ec-line">
+            <option value="">— Select Line —</option>
+            <option value="L1">L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+            <option value="L4">L4</option>
+            <option value="L5">L5</option>
+            <option value="L6">L6</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Address</label>
