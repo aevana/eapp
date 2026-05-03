@@ -582,6 +582,7 @@ function renderCustomerPage(customer, bills) {
           ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
           <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill for ${esc(customer.name)}')">🗑 Delete</button>
           <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
+          ${b.status === 'active' ? `<button class="btn btn-monthly btn-icon" onclick="openMonthlyReminder('${customer.id}','${b.id}')">📅 Monthly</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -1288,6 +1289,82 @@ function sendWhatsAppBillReminder(customerId, billId) {
   showBillImageModal(customer.mobile, {
     name:       customer.name,
     period:     fmt(bill.startDate) + ' → ' + (bill.stopDate ? fmt(bill.stopDate) : 'Running'),
+    days:       String(days),
+    sets:       String(bill.quantity || 1),
+    rate:       '₹' + (bill.perDayCharge || 0) + '/day',
+    total:      '₹' + total.toLocaleString('en-IN'),
+    arrears:    '₹' + arrears.toLocaleString('en-IN'),
+    arrearsAmt: arrears,
+    paid:       '₹' + paid.toLocaleString('en-IN'),
+    pending:    '₹' + pending.toLocaleString('en-IN'),
+    pendingAmt: pending,
+  });
+}
+
+// Open month picker for monthly reminder
+function openMonthlyReminder(customerId, billId) {
+  const customer = trackerData.find(c => c.id === customerId) ||
+    { ...allCustomers.find(c => c.id === customerId), bills: allBills.filter(b => b.customerId === customerId) };
+  if (!customer) return;
+
+  const bill = (customer.bills || []).find(b => b.id === billId) || allBills.find(b => b.id === billId);
+  if (!bill) return;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(bill.startDate); start.setHours(0,0,0,0);
+  const stop  = bill.stopDate ? new Date(bill.stopDate) : today;
+  stop.setHours(0,0,0,0);
+
+  // Build list of months this bill spans
+  const months = [];
+  let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cur <= stop) {
+    months.push({ month: cur.getMonth() + 1, year: cur.getFullYear() });
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+
+  const container = document.getElementById('monthly-reminder-months');
+  container.innerHTML = months.map(({ month, year }) => {
+    const label = new Date(year, month - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+    return `<button class="btn btn-monthly-chip" onclick="sendMonthlyBillReminder('${customerId}','${billId}',${month},${year})">${label}</button>`;
+  }).join('');
+
+  openModal('modal-monthly-reminder');
+}
+
+// Send reminder for a specific bill restricted to a single month
+function sendMonthlyBillReminder(customerId, billId, month, year) {
+  closeModal('modal-monthly-reminder');
+
+  const customer = trackerData.find(c => c.id === customerId) ||
+    { ...allCustomers.find(c => c.id === customerId), bills: allBills.filter(b => b.customerId === customerId) };
+  const bill = (customer?.bills || []).find(b => b.id === billId) || allBills.find(b => b.id === billId);
+  if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
+
+  const toMidnight = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
+  const mStart = new Date(year, month - 1, 1);
+  const mEnd   = new Date(year, month, 0);
+  const today  = toMidnight(new Date());
+
+  const billStart = toMidnight(bill.startDate);
+  const billStop  = bill.stopDate ? toMidnight(bill.stopDate) : today;
+
+  const clippedStart = billStart > mStart ? billStart : mStart;
+  const clippedStop  = billStop  < mEnd   ? billStop  : mEnd;
+  const days = clippedStop >= clippedStart
+    ? Math.round((clippedStop - clippedStart) / 86400000) + 1
+    : 0;
+
+  const total    = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
+  const arrears  = bill.arrears || 0;
+  const paid     = bill.collectedAmount || 0;
+  const pending  = Math.max(0, total + arrears - paid);
+  const monthLabel = mStart.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const fmt = d => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  showBillImageModal(customer.mobile, {
+    name:       customer.name,
+    period:     monthLabel,
     days:       String(days),
     sets:       String(bill.quantity || 1),
     rate:       '₹' + (bill.perDayCharge || 0) + '/day',

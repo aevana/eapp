@@ -162,6 +162,14 @@ body {
 }
 .btn-whatsapp:hover { background: #128C7E; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(37,211,102,.35); }
 
+/* Monthly reminder button */
+.btn-monthly { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: .8rem; padding: .35rem .75rem; border-radius: var(--radius); transition: all .15s; }
+.btn-monthly:hover { background: #dbeafe; }
+
+/* Monthly month chip buttons in picker modal */
+.btn-monthly-chip { background: var(--primary); color: #fff; border: none; font-size: .85rem; font-weight: 600; padding: .45rem 1rem; border-radius: var(--radius); cursor: pointer; transition: all .15s; }
+.btn-monthly-chip:hover { background: #1d4ed8; transform: translateY(-1px); }
+
 /* ── Search / Filter ──────────────────────────────────────────── */
 .search-bar, .filter-row {
   display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap;

@@ -849,6 +849,21 @@
     </div>
   </div>
 
+  <!-- Monthly Reminder Month Picker Modal -->
+  <div id="modal-monthly-reminder" class="modal-overlay" onclick="closeModalOutside(event,'modal-monthly-reminder')">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📅 Monthly Reminder</h3>
+        <button class="modal-close" onclick="closeModal('modal-monthly-reminder')">✕</button>
+      </div>
+      <p style="font-size:.85rem;color:var(--gray-500);margin-bottom:1rem;">Select a month to generate the reminder:</p>
+      <div id="monthly-reminder-months" style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('modal-monthly-reminder')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- WhatsApp Notification Prompt -->
   <div id="modal-wa-prompt" class="modal-overlay" onclick="closeModalOutside(event,'modal-wa-prompt')">
     <div class="modal modal-wide">
