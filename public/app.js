@@ -241,23 +241,38 @@ async function loadHome() {
       apiFetch('/api/monthly-charges'),
     ]);
 
-    // ── compute totals (Pending & Collected only for active/running bills)
-    let totalPending = 0, totalCollected = 0, runningCount = 0;
-    const runningCards = [];
+    // ── aggregate active bills by customer
+    let totalPending = 0, totalCollected = 0, totalQuantity = 0;
+    const customerBills = new Map(); // customerId -> { cust, bills: [], totalQty: 0, ... }
 
     data.forEach(cust => {
       const bills = cust.bills || [];
-      bills.forEach(b => {
-        if (b.status === 'active') {
-          totalPending   += b.pendingAmount   || 0;
+      const activeBills = bills.filter(b => b.status === 'active');
+
+      if (activeBills.length > 0) {
+        let custQty = 0, custPending = 0, custCollected = 0;
+        activeBills.forEach(b => {
+          custQty += b.quantity || 1;
+          custPending += b.pendingAmount || 0;
+          custCollected += b.collectedAmount || 0;
+          totalPending += b.pendingAmount || 0;
           totalCollected += b.collectedAmount || 0;
-          runningCount++;
-          runningCards.push({ cust, bill: b });
-        }
-      });
+          totalQuantity += b.quantity || 1;
+        });
+        customerBills.set(cust.id, {
+          cust,
+          bills: activeBills,
+          totalQty: custQty,
+          totalPending: custPending,
+          totalCollected: custCollected,
+        });
+      }
     });
 
-    // ── sort running cards based on selected mode
+    // ── build cards array for sorting
+    const runningCards = Array.from(customerBills.values());
+
+    // ── sort based on selected mode
     if (homeSortBy === 'line') {
       runningCards.sort((a, b) => {
         const lineA = a.cust.line || '—';
@@ -267,21 +282,21 @@ async function loadHome() {
     } else if (homeSortBy === 'days') {
       const today = new Date(); today.setHours(0,0,0,0);
       runningCards.sort((a, b) => {
-        const startA = new Date(a.bill.startDate); startA.setHours(0,0,0,0);
-        const startB = new Date(b.bill.startDate); startB.setHours(0,0,0,0);
+        const startA = new Date(a.bills[0].startDate); startA.setHours(0,0,0,0);
+        const startB = new Date(b.bills[0].startDate); startB.setHours(0,0,0,0);
         const daysA = Math.max(1, Math.round((today - startA) / 86400000) + 1);
         const daysB = Math.max(1, Math.round((today - startB) / 86400000) + 1);
         return daysB - daysA;
       });
     } else if (homeSortBy === 'sets') {
       runningCards.sort((a, b) => {
-        return (b.bill.quantity || 0) - (a.bill.quantity || 0);
+        return b.totalQty - a.totalQty;
       });
     }
 
     // ── stat row
     document.getElementById('hs-val-customers').textContent = data.length;
-    document.getElementById('hs-val-running').textContent   = runningCount;
+    document.getElementById('hs-val-running').textContent   = totalQuantity;
     document.getElementById('hs-val-pending').textContent   = '₹' + totalPending.toLocaleString();
     document.getElementById('hs-val-collected').textContent = '₹' + totalCollected.toLocaleString();
 
@@ -293,37 +308,44 @@ async function loadHome() {
     }
 
     const today = new Date(); today.setHours(0,0,0,0);
-    list.innerHTML = runningCards.map(({ cust, bill }) => {
-      const start    = new Date(bill.startDate); start.setHours(0,0,0,0);
-      const days     = Math.max(1, Math.round((today - start) / 86400000) + 1);
-      const accrued  = days * (bill.perDayCharge || 0) * (bill.quantity || 1);
-      const pending  = bill.pendingAmount || 0;
+    list.innerHTML = runningCards.map(({ cust, bills, totalQty, totalPending, totalCollected }) => {
+      const earliestStart = bills.reduce((min, b) => {
+        const d = new Date(b.startDate);
+        return d < min ? d : min;
+      }, new Date());
+      earliestStart.setHours(0,0,0,0);
+      const days = Math.max(1, Math.round((today - earliestStart) / 86400000) + 1);
+
+      const totalAccrued = bills.reduce((sum, b) => {
+        return sum + (days * (b.perDayCharge || 0) * (b.quantity || 1));
+      }, 0);
+
       const initials = cust.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
       return `
         <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
           <div class="home-run-avatar">${initials}</div>
-          <div class="home-run-qty-badge">${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</div>
+          <div class="home-run-qty-badge">${totalQty} set${totalQty !== 1 ? 's' : ''}</div>
           <div class="home-run-body">
             <div class="home-run-top">
               <span class="home-run-name">${esc(cust.name)}${cust.line ? ` (${esc(cust.line)})` : ''}</span>
               <span class="home-run-mobile">${esc(cust.mobile)}</span>
             </div>
             <div class="home-run-meta">
-              <span>📅 ${fmtDate(bill.startDate)}</span>
+              <span>📅 ${fmtDate(earliestStart)}</span>
               <span>⚡ ${days} day${days !== 1 ? 's' : ''} running</span>
             </div>
             <div class="home-run-amounts">
               <div class="home-run-amt-block">
                 <span class="home-run-amt-label">Accrued</span>
-                <span class="home-run-amt-val">₹${accrued.toLocaleString()}</span>
+                <span class="home-run-amt-val">₹${totalAccrued.toLocaleString()}</span>
               </div>
               <div class="home-run-amt-block home-run-amt-pending">
                 <span class="home-run-amt-label">Pending</span>
-                <span class="home-run-amt-val">₹${pending.toLocaleString()}</span>
+                <span class="home-run-amt-val">₹${totalPending.toLocaleString()}</span>
               </div>
               <div class="home-run-amt-block home-run-amt-collected">
                 <span class="home-run-amt-label">Collected</span>
-                <span class="home-run-amt-val">₹${(bill.collectedAmount||0).toLocaleString()}</span>
+                <span class="home-run-amt-val">₹${totalCollected.toLocaleString()}</span>
               </div>
             </div>
           </div>
