@@ -230,6 +230,36 @@ function setSortRunning(sortBy) {
   loadHome();
 }
 
+// Helper: calculate monthly breakdown for a bill
+function getMonthlyBreakdown(bill, today) {
+  const monthlyMap = {}; // 'MMM YYYY' -> amount
+  const start = new Date(bill.startDate); start.setHours(0,0,0,0);
+  const stop  = bill.stopDate ? new Date(bill.stopDate) : today;
+  stop.setHours(0,0,0,0);
+
+  let current = new Date(start.getFullYear(), start.getMonth(), 1);
+  const rate = (bill.perDayCharge || 0) * (bill.quantity || 1);
+
+  while (current <= stop) {
+    const mStart = new Date(current);
+    const mEnd   = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+
+    const billStart = mStart > start ? mStart : start;
+    const billEnd   = mEnd < stop ? mEnd : stop;
+
+    if (billStart <= billEnd) {
+      const days   = Math.round((billEnd - billStart) / 86400000) + 1;
+      const amount = days * rate;
+      const key    = mStart.toLocaleString('default', { month: 'short', year: 'numeric' });
+      monthlyMap[key] = (monthlyMap[key] || 0) + amount;
+    }
+
+    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+  }
+
+  return monthlyMap;
+}
+
 // ══════════════════════════════════════════════════════════════
 //  HOME
 // ══════════════════════════════════════════════════════════════
@@ -314,6 +344,8 @@ async function loadHome() {
       const initials = cust.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
 
       let grandTotal = 0;
+      const monthlyTotals = {}; // 'MMM YYYY' -> amount
+
       const billRows = bills.map(b => {
         const start = new Date(b.startDate); start.setHours(0,0,0,0);
         const stop  = b.stopDate ? new Date(b.stopDate) : today;
@@ -321,8 +353,20 @@ async function loadHome() {
         const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
         const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
         grandTotal  += amount;
+
+        // Aggregate monthly breakdown
+        const monthly = getMonthlyBreakdown(b, today);
+        Object.entries(monthly).forEach(([month, amt]) => {
+          monthlyTotals[month] = (monthlyTotals[month] || 0) + amt;
+        });
+
         return `<div class="home-bill-row">${fmtDate(start)} → ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}</div>`;
       }).join('');
+
+      // Format monthly breakdown
+      const monthlyStr = Object.entries(monthlyTotals)
+        .map(([month, amt]) => `${month}: ${amt.toLocaleString()}`)
+        .join('  |  ');
 
       return `
         <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
@@ -334,7 +378,8 @@ async function loadHome() {
               <span class="home-run-mobile">${esc(cust.mobile)}</span>
             </div>
             <div class="home-bill-list">${billRows}</div>
-            <div class="home-bill-total">Days: ${totalDays}    Total: ₹${grandTotal.toLocaleString()}</div>
+            ${monthlyStr ? `<div class="home-bill-monthly">${monthlyStr}</div>` : ''}
+            <div class="home-bill-total">Days: ${totalDays}  |  Total: ₹${grandTotal.toLocaleString()}</div>
           </div>
         </div>
       `;
