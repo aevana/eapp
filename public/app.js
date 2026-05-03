@@ -319,11 +319,7 @@ async function loadHome() {
         const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
         const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
         grandTotal  += amount;
-        const stopLabel = b.stopDate ? fmtDate(stop) : 'Running';
-        return `<div class="home-bill-row">
-          <span class="home-bill-dates">${fmtDate(start)} → ${stopLabel}</span>
-          <span class="home-bill-detail">${days} day${days !== 1 ? 's' : ''} · ${b.quantity} set${b.quantity !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}</span>
-        </div>`;
+        return `<div class="home-bill-row">${fmtDate(start)} → ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}</div>`;
       }).join('');
 
       return `
