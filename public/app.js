@@ -1392,68 +1392,65 @@ function openBillNotification(customerId, billId) {
 // Format bill notification message
 function formatBillNotification(customer, bills) {
   const s = getSettings();
+  const today = new Date(); today.setHours(0,0,0,0);
   const lines = [];
+
   lines.push(`Dear ${customer.name},`);
+  lines.push(`Reminder for your outstanding bill`);
   lines.push('');
 
-  // Bill rows — grouped by customer or all individual bills
-  if (bills.length === 1) {
-    const b = bills[0];
+  // Per-bill rows
+  const billPrefix = bills.length > 1;
+  bills.forEach((b, i) => {
     const start = new Date(b.startDate); start.setHours(0,0,0,0);
-    const stop  = b.stopDate ? new Date(b.stopDate) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+    const stop  = b.stopDate ? new Date(b.stopDate) : today;
     stop.setHours(0,0,0,0);
-    const days = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+    const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
     const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
-    lines.push(`Bill: ${fmtDate(start)} → ${b.stopDate ? fmtDate(stop) : 'Running'} · ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}`);
-  } else {
-    bills.forEach((b, i) => {
-      const start = new Date(b.startDate); start.setHours(0,0,0,0);
-      const stop  = b.stopDate ? new Date(b.stopDate) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
-      stop.setHours(0,0,0,0);
-      const days = Math.max(1, Math.round((stop - start) / 86400000) + 1);
-      const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
-      lines.push(`Set${i + 1}: ${fmtDate(start)} → ${b.stopDate ? fmtDate(stop) : 'Running'} · ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}`);
-    });
-  }
+    const prefix = billPrefix ? `Set${i + 1}: ` : '';
+    lines.push(`${prefix}${fmtDate(start)} → ${b.stopDate ? fmtDate(stop) : 'Running'} · ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}`);
+  });
 
   // Monthly breakdown
   const monthlyTotals = {};
   let totalDays = 0, totalAmount = 0;
   bills.forEach(b => {
     const start = new Date(b.startDate); start.setHours(0,0,0,0);
-    const stop  = b.stopDate ? new Date(b.stopDate) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+    const stop  = b.stopDate ? new Date(b.stopDate) : today;
     stop.setHours(0,0,0,0);
-    const days = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+    const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
     const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
-    totalDays += days;
+    totalDays   += days;
     totalAmount += amount;
-
-    const monthly = getMonthlyBreakdown(b, (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })());
+    const monthly = getMonthlyBreakdown(b, today);
     Object.entries(monthly).forEach(([month, amt]) => {
       monthlyTotals[month] = (monthlyTotals[month] || 0) + amt;
     });
   });
 
   const monthlyStr = Object.entries(monthlyTotals)
-    .map(([month, amt]) => `${month}: ${amt.toLocaleString()}`)
+    .map(([month, amt]) => `${month}: ₹${amt.toLocaleString()}`)
     .join('  |  ');
 
-  lines.push('');
   if (monthlyStr) lines.push(monthlyStr);
 
-  const arrears = bills.reduce((s, b) => s + (b.arrears || 0), 0);
+  lines.push(`Days: ${totalDays}`);
+
+  const arrears  = bills.reduce((s, b) => s + (b.arrears || 0), 0);
   const collected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
 
-  lines.push(`Days: ${totalDays}  |  Total: ₹${totalAmount.toLocaleString()}`);
   if (arrears > 0) lines.push(`Arrears: ₹${arrears.toLocaleString()}`);
   lines.push(`Paid: ₹${collected.toLocaleString()}`);
-
+  lines.push(`-----`);
+  lines.push(`Total: ₹${totalAmount.toLocaleString()}`);
   lines.push('');
+
   if (s.operatorMobile) {
-    lines.push(`For any queries, please contact ${s.operatorMobile}.`);
+    lines.push(`Please pay outstanding amount to ${s.operatorMobile} and share the receipt.`);
   } else {
-    lines.push(`For any queries, please contact us.`);
+    lines.push(`Please pay the outstanding amount and share the receipt.`);
   }
+  lines.push(`For any queries, please contact us. Thank you.`);
 
   return lines.join('\n');
 }
