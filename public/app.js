@@ -3,6 +3,7 @@ let allCustomers   = [];
 let allBills       = [];
 let trackerData    = [];   // by-customer tracker cache
 let lastBSData     = null; // last loaded balance-sheet payload
+let homeSortBy     = 'line'; // sort mode for home page running sets
 
 // ── Validation helpers ─────────────────────────────────────────
 function showFieldError(id, msg) {
@@ -221,6 +222,44 @@ function switchTracker(type) {
   document.getElementById(`tracker-${type}`).classList.add('active');
 }
 
+function setSortRunning(sortBy) {
+  homeSortBy = sortBy;
+  document.querySelectorAll('.home-sort-buttons .sort-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sort === sortBy);
+  });
+  loadHome();
+}
+
+// Helper: calculate monthly breakdown for a bill
+function getMonthlyBreakdown(bill, today) {
+  const monthlyMap = {}; // 'MMM YYYY' -> amount
+  const start = new Date(bill.startDate); start.setHours(0,0,0,0);
+  const stop  = bill.stopDate ? new Date(bill.stopDate) : today;
+  stop.setHours(0,0,0,0);
+
+  let current = new Date(start.getFullYear(), start.getMonth(), 1);
+  const rate = (bill.perDayCharge || 0) * (bill.quantity || 1);
+
+  while (current <= stop) {
+    const mStart = new Date(current);
+    const mEnd   = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+
+    const billStart = mStart > start ? mStart : start;
+    const billEnd   = mEnd < stop ? mEnd : stop;
+
+    if (billStart <= billEnd) {
+      const days   = Math.round((billEnd - billStart) / 86400000) + 1;
+      const amount = days * rate;
+      const key    = mStart.toLocaleString('default', { month: 'short', year: 'numeric' });
+      monthlyMap[key] = (monthlyMap[key] || 0) + amount;
+    }
+
+    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+  }
+
+  return monthlyMap;
+}
+
 // ══════════════════════════════════════════════════════════════
 //  HOME
 // ══════════════════════════════════════════════════════════════
@@ -232,25 +271,65 @@ async function loadHome() {
       apiFetch('/api/monthly-charges'),
     ]);
 
-    // ── compute totals (Pending & Collected only for active/running bills)
-    let totalPending = 0, totalCollected = 0, runningCount = 0;
-    const runningCards = [];
+    // ── aggregate active bills by customer
+    let totalPending = 0, totalCollected = 0, totalQuantity = 0;
+    const customerBills = new Map(); // customerId -> { cust, bills: [], totalQty: 0, totalDays: 0, ... }
+    const today = new Date(); today.setHours(0,0,0,0);
 
     data.forEach(cust => {
       const bills = cust.bills || [];
-      bills.forEach(b => {
-        if (b.status === 'active') {
-          totalPending   += b.pendingAmount   || 0;
+      const activeBills = bills.filter(b => b.status === 'active');
+
+      if (activeBills.length > 0) {
+        let custQty = 0, custPending = 0, custCollected = 0, custDays = 0;
+        activeBills.forEach(b => {
+          custQty += b.quantity || 1;
+          custPending += b.pendingAmount || 0;
+          custCollected += b.collectedAmount || 0;
+          totalPending += b.pendingAmount || 0;
           totalCollected += b.collectedAmount || 0;
-          runningCount++;
-          runningCards.push({ cust, bill: b });
-        }
-      });
+          totalQuantity += b.quantity || 1;
+
+          const start = new Date(b.startDate); start.setHours(0,0,0,0);
+          const stop  = b.stopDate ? new Date(b.stopDate) : today;
+          stop.setHours(0,0,0,0);
+          const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+          custDays += days;
+        });
+        customerBills.set(cust.id, {
+          cust,
+          bills: activeBills,
+          totalQty: custQty,
+          totalDays: custDays,
+          totalPending: custPending,
+          totalCollected: custCollected,
+        });
+      }
     });
+
+    // ── build cards array for sorting
+    const runningCards = Array.from(customerBills.values());
+
+    // ── sort based on selected mode
+    if (homeSortBy === 'line') {
+      runningCards.sort((a, b) => {
+        const lineA = a.cust.line || '—';
+        const lineB = b.cust.line || '—';
+        return lineA.localeCompare(lineB) || a.cust.name.localeCompare(b.cust.name);
+      });
+    } else if (homeSortBy === 'days') {
+      runningCards.sort((a, b) => {
+        return b.totalDays - a.totalDays;
+      });
+    } else if (homeSortBy === 'sets') {
+      runningCards.sort((a, b) => {
+        return b.totalQty - a.totalQty;
+      });
+    }
 
     // ── stat row
     document.getElementById('hs-val-customers').textContent = data.length;
-    document.getElementById('hs-val-running').textContent   = runningCount;
+    document.getElementById('hs-val-running').textContent   = totalQuantity;
     document.getElementById('hs-val-pending').textContent   = '₹' + totalPending.toLocaleString();
     document.getElementById('hs-val-collected').textContent = '₹' + totalCollected.toLocaleString();
 
@@ -261,40 +340,46 @@ async function loadHome() {
       return;
     }
 
-    const today = new Date(); today.setHours(0,0,0,0);
-    list.innerHTML = runningCards.map(({ cust, bill }) => {
-      const start    = new Date(bill.startDate); start.setHours(0,0,0,0);
-      const days     = Math.max(1, Math.round((today - start) / 86400000) + 1);
-      const accrued  = days * (bill.perDayCharge || 0) * (bill.quantity || 1);
-      const pending  = bill.pendingAmount || 0;
+    list.innerHTML = runningCards.map(({ cust, bills, totalQty, totalDays }) => {
       const initials = cust.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
+
+      let grandTotal = 0;
+      const monthlyTotals = {}; // 'MMM YYYY' -> amount
+
+      const billRows = bills.map(b => {
+        const start = new Date(b.startDate); start.setHours(0,0,0,0);
+        const stop  = b.stopDate ? new Date(b.stopDate) : today;
+        stop.setHours(0,0,0,0);
+        const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+        const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+        grandTotal  += amount;
+
+        // Aggregate monthly breakdown
+        const monthly = getMonthlyBreakdown(b, today);
+        Object.entries(monthly).forEach(([month, amt]) => {
+          monthlyTotals[month] = (monthlyTotals[month] || 0) + amt;
+        });
+
+        return `<div class="home-bill-row">${fmtDate(start)} → ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}</div>`;
+      }).join('');
+
+      // Format monthly breakdown
+      const monthlyStr = Object.entries(monthlyTotals)
+        .map(([month, amt]) => `${month}: ${amt.toLocaleString()}`)
+        .join('  |  ');
+
       return `
         <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
           <div class="home-run-avatar">${initials}</div>
-          <div class="home-run-qty-badge">${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</div>
+          <div class="home-run-qty-badge">${totalQty} set${totalQty !== 1 ? 's' : ''}</div>
           <div class="home-run-body">
             <div class="home-run-top">
-              <span class="home-run-name">${esc(cust.name)}</span>
+              <span class="home-run-name">${esc(cust.name)}${cust.line ? ` (${esc(cust.line)})` : ''}</span>
               <span class="home-run-mobile">${esc(cust.mobile)}</span>
             </div>
-            <div class="home-run-meta">
-              <span>📅 ${fmtDate(bill.startDate)}</span>
-              <span>⚡ ${days} day${days !== 1 ? 's' : ''} running</span>
-            </div>
-            <div class="home-run-amounts">
-              <div class="home-run-amt-block">
-                <span class="home-run-amt-label">Accrued</span>
-                <span class="home-run-amt-val">₹${accrued.toLocaleString()}</span>
-              </div>
-              <div class="home-run-amt-block home-run-amt-pending">
-                <span class="home-run-amt-label">Pending</span>
-                <span class="home-run-amt-val">₹${pending.toLocaleString()}</span>
-              </div>
-              <div class="home-run-amt-block home-run-amt-collected">
-                <span class="home-run-amt-label">Collected</span>
-                <span class="home-run-amt-val">₹${(bill.collectedAmount||0).toLocaleString()}</span>
-              </div>
-            </div>
+            <div class="home-bill-list">${billRows}</div>
+            ${monthlyStr ? `<div class="home-bill-monthly">${monthlyStr}</div>` : ''}
+            <div class="home-bill-total">Days: ${totalDays}  |  Total: ₹${grandTotal.toLocaleString()}</div>
           </div>
         </div>
       `;
@@ -330,6 +415,7 @@ async function loadCustomers() {
 }
 
 function renderCustomers(list) {
+  if (viewByLine) { renderCustomersByLine(list); return; }
   const grid = document.getElementById('customer-grid');
   if (!list.length) {
     grid.innerHTML = '<p class="empty-row">No customers found.</p>';
@@ -343,6 +429,7 @@ function renderCustomers(list) {
     const hasActive      = activeBills.length > 0;
     return `
       <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+        ${c.line ? `<div class="cust-line-corner-badge">${esc(c.line)}</div>` : ''}
         <div class="cust-card-top">
           <div class="cust-card-num">${idx + 1}</div>
           <div class="cust-card-info">
@@ -364,6 +451,69 @@ function renderCustomers(list) {
         </div>
       </div>
     `;
+  }).join('');
+}
+
+// ── View by Line toggle ───────────────────────────────────────
+
+let viewByLine = false;
+
+function toggleViewByLine() {
+  viewByLine = !viewByLine;
+  const btn = document.getElementById('btn-view-by-line');
+  if (btn) btn.classList.toggle('active', viewByLine);
+  renderCustomers(trackerData);
+}
+
+function renderCustomersByLine(list) {
+  const grid = document.getElementById('customer-grid');
+  const lines = ['L1','L2','L3','L4','L5','L6'];
+  const grouped = {};
+  lines.forEach(l => grouped[l] = []);
+  grouped['—'] = [];
+  list.forEach(c => {
+    const key = lines.includes(c.line) ? c.line : '—';
+    grouped[key].push(c);
+  });
+  const allLines = [...lines, '—'].filter(l => grouped[l].length > 0);
+  if (!allLines.length) {
+    grid.innerHTML = '<p class="empty-row">No customers found.</p>';
+    return;
+  }
+  grid.innerHTML = allLines.map(line => {
+    const customers = grouped[line];
+    const cards = customers.map((c, idx) => {
+      const bills          = c.bills || [];
+      const activeBills    = bills.filter(b => b.status === 'active');
+      const totalPending   = bills.reduce((s, b) => s + (b.pendingAmount   || 0), 0);
+      const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
+      const hasActive      = activeBills.length > 0;
+      return `
+        <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+          ${c.line ? `<div class="cust-line-corner-badge">${esc(c.line)}</div>` : ''}
+          <div class="cust-card-top">
+            <div class="cust-card-num">${idx + 1}</div>
+            <div class="cust-card-info">
+              <div class="cust-card-name">${esc(c.name)}</div>
+              <div class="cust-card-mobile">${esc(c.mobile)}</div>
+              <div class="cust-card-stats">
+                <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
+                <span class="cstat ${hasActive ? 'cstat-active' : ''}"><span>Active</span><strong>${activeBills.length}</strong></span>
+                <span class="cstat cstat-pending"><span>Pending</span><strong>₹${totalPending.toLocaleString()}</strong></span>
+                <span class="cstat cstat-collected"><span>Collected</span><strong>₹${totalCollected.toLocaleString()}</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="cust-card-actions" onclick="event.stopPropagation()">
+            ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+            <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
+            <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
+            <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    return `<div class="line-group"><div class="line-group-header">${line}</div><div class="line-group-cards">${cards}</div></div>`;
   }).join('');
 }
 
@@ -402,6 +552,7 @@ function renderCustomerPage(customer, bills) {
     <div class="cdetail-info-card">
       <div class="cdetail-info-row"><span>Name</span><strong>${esc(customer.name)}</strong></div>
       <div class="cdetail-info-row"><span>Mobile</span><strong>${esc(customer.mobile)}</strong></div>
+      <div class="cdetail-info-row"><span>Line</span><strong>${esc(customer.line || '—')}</strong></div>
       <div class="cdetail-info-row"><span>Address</span><strong>${esc(customer.address || '—')}</strong></div>
       <div class="cdetail-info-row"><span>Registered</span><strong>${fmtDate(customer.createdAt)}</strong></div>
     </div>
@@ -431,6 +582,8 @@ function renderCustomerPage(customer, bills) {
           ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
           <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill for ${esc(customer.name)}')">🗑 Delete</button>
           <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
+          <button class="btn btn-notify btn-icon" onclick="openBillNotification('${customer.id}','${b.id}')">💬 Notify</button>
+          ${b.status === 'active' ? `<button class="btn btn-monthly btn-icon" onclick="openMonthlyReminder('${customer.id}','${b.id}')">📅 Monthly</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -496,6 +649,7 @@ async function submitAddCustomer(e) {
   const body = {
     name:    document.getElementById('c-name').value.trim(),
     mobile:  document.getElementById('c-mobile').value.trim(),
+    line:    document.getElementById('c-line').value,
     address: document.getElementById('c-address').value.trim(),
   };
   try {
@@ -526,6 +680,7 @@ function openEditCustomer(id) {
   document.getElementById('ec-id').value      = c.id;
   document.getElementById('ec-name').value    = c.name;
   document.getElementById('ec-mobile').value  = c.mobile;
+  document.getElementById('ec-line').value    = c.line || '';
   document.getElementById('ec-address').value = c.address || '';
   openModal('modal-edit-customer');
 }
@@ -540,6 +695,7 @@ async function submitEditCustomer(e) {
   const body = {
     name:    document.getElementById('ec-name').value.trim(),
     mobile:  document.getElementById('ec-mobile').value.trim(),
+    line:    document.getElementById('ec-line').value,
     address: document.getElementById('ec-address').value.trim(),
   };
   try {
@@ -1144,6 +1300,159 @@ function sendWhatsAppBillReminder(customerId, billId) {
     pending:    '₹' + pending.toLocaleString('en-IN'),
     pendingAmt: pending,
   });
+}
+
+// Open month picker for monthly reminder
+function openMonthlyReminder(customerId, billId) {
+  const customer = trackerData.find(c => c.id === customerId) ||
+    { ...allCustomers.find(c => c.id === customerId), bills: allBills.filter(b => b.customerId === customerId) };
+  if (!customer) return;
+
+  const bill = (customer.bills || []).find(b => b.id === billId) || allBills.find(b => b.id === billId);
+  if (!bill) return;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(bill.startDate); start.setHours(0,0,0,0);
+  const stop  = bill.stopDate ? new Date(bill.stopDate) : today;
+  stop.setHours(0,0,0,0);
+
+  // Build list of months this bill spans
+  const months = [];
+  let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cur <= stop) {
+    months.push({ month: cur.getMonth() + 1, year: cur.getFullYear() });
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+
+  const container = document.getElementById('monthly-reminder-months');
+  container.innerHTML = months.map(({ month, year }) => {
+    const label = new Date(year, month - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+    return `<button class="btn btn-monthly-chip" onclick="sendMonthlyBillReminder('${customerId}','${billId}',${month},${year})">${label}</button>`;
+  }).join('');
+
+  openModal('modal-monthly-reminder');
+}
+
+// Send reminder for a specific bill restricted to a single month
+function sendMonthlyBillReminder(customerId, billId, month, year) {
+  closeModal('modal-monthly-reminder');
+
+  const customer = trackerData.find(c => c.id === customerId) ||
+    { ...allCustomers.find(c => c.id === customerId), bills: allBills.filter(b => b.customerId === customerId) };
+  const bill = (customer?.bills || []).find(b => b.id === billId) || allBills.find(b => b.id === billId);
+  if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
+
+  const toMidnight = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
+  const mStart = new Date(year, month - 1, 1);
+  const mEnd   = new Date(year, month, 0);
+  const today  = toMidnight(new Date());
+
+  const billStart = toMidnight(bill.startDate);
+  const billStop  = bill.stopDate ? toMidnight(bill.stopDate) : today;
+
+  const clippedStart = billStart > mStart ? billStart : mStart;
+  const clippedStop  = billStop  < mEnd   ? billStop  : mEnd;
+  const days = clippedStop >= clippedStart
+    ? Math.round((clippedStop - clippedStart) / 86400000) + 1
+    : 0;
+
+  const total    = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
+  const arrears  = bill.arrears || 0;
+  const paid     = bill.collectedAmount || 0;
+  const pending  = Math.max(0, total + arrears - paid);
+  const monthLabel = mStart.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const fmt = d => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  showBillImageModal(customer.mobile, {
+    name:       customer.name,
+    period:     monthLabel,
+    days:       String(days),
+    sets:       String(bill.quantity || 1),
+    rate:       '₹' + (bill.perDayCharge || 0) + '/day',
+    total:      '₹' + total.toLocaleString('en-IN'),
+    arrears:    '₹' + arrears.toLocaleString('en-IN'),
+    arrearsAmt: arrears,
+    paid:       '₹' + paid.toLocaleString('en-IN'),
+    pending:    '₹' + pending.toLocaleString('en-IN'),
+    pendingAmt: pending,
+  });
+}
+
+// Open bill notification with editable message
+function openBillNotification(customerId, billId) {
+  const customer = trackerData.find(c => c.id === customerId) ||
+    { ...allCustomers.find(c => c.id === customerId), bills: allBills.filter(b => b.customerId === customerId) };
+  const bill = (customer?.bills || []).find(b => b.id === billId) || allBills.find(b => b.id === billId);
+  if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
+
+  const message = formatBillNotification(customer, [bill]);
+  promptWhatsApp(customer.mobile, message);
+}
+
+// Format bill notification message
+function formatBillNotification(customer, bills) {
+  const s = getSettings();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const lines = [];
+
+  lines.push(`Dear ${customer.name},`);
+  lines.push(`Reminder for your outstanding bill`);
+  lines.push('');
+
+  // Per-bill rows
+  const billPrefix = bills.length > 1;
+  bills.forEach((b, i) => {
+    const start = new Date(b.startDate); start.setHours(0,0,0,0);
+    const stop  = b.stopDate ? new Date(b.stopDate) : today;
+    stop.setHours(0,0,0,0);
+    const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+    const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+    const prefix = billPrefix ? `Set${i + 1}: ` : '';
+    lines.push(`${prefix}${fmtDate(start)} → ${b.stopDate ? fmtDate(stop) : 'Running'} · ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}`);
+  });
+
+  // Monthly breakdown
+  const monthlyTotals = {};
+  let totalDays = 0, totalAmount = 0;
+  bills.forEach(b => {
+    const start = new Date(b.startDate); start.setHours(0,0,0,0);
+    const stop  = b.stopDate ? new Date(b.stopDate) : today;
+    stop.setHours(0,0,0,0);
+    const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+    const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+    totalDays   += days;
+    totalAmount += amount;
+    const monthly = getMonthlyBreakdown(b, today);
+    Object.entries(monthly).forEach(([month, amt]) => {
+      monthlyTotals[month] = (monthlyTotals[month] || 0) + amt;
+    });
+  });
+
+  const monthlyStr = Object.entries(monthlyTotals)
+    .map(([month, amt]) => `${month}: ₹${amt.toLocaleString()}`)
+    .join('  |  ');
+
+  if (monthlyStr) lines.push(monthlyStr);
+
+  lines.push(`Days: ${totalDays}`);
+
+  const arrears  = bills.reduce((s, b) => s + (b.arrears || 0), 0);
+  const collected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
+
+  if (arrears > 0) lines.push(`Arrears: ₹${arrears.toLocaleString()}`);
+  lines.push(`Paid: ₹${collected.toLocaleString()}`);
+  lines.push(`-----`);
+  lines.push(`Total: ₹${totalAmount.toLocaleString()}`);
+  lines.push('');
+
+  if (s.operatorMobile) {
+    lines.push(`Please pay outstanding amount to ${s.operatorMobile} and share the receipt.`);
+  } else {
+    lines.push(`Please pay the outstanding amount and share the receipt.`);
+  }
+  lines.push(`For any queries, please contact us. Thank you.`);
+
+  return lines.join('\n');
 }
 
 // ══════════════════════════════════════════════════════════════

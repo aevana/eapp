@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transcoding-on-Output M2 — Epic DV-13012</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Calibri:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Open Sans', 'Calibri', 'Segoe UI', Arial, sans-serif;
+      background: #d0d0d0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px 20px 80px;
+    }
+
+    /* ── Slide wrapper (16:9 aspect ratio PPT look) ── */
+    .slide-wrapper {
+      width: min(960px, 96vw);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+    }
+
+    .deck { width: 100%; height: 100%; position: relative; }
+
+    .slide {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .slide.active { display: flex; flex-direction: column; }
+
+    /* ── colour tokens ── */
+    :root {
+      --accent:   #1F5C99;   /* PPT dark blue */
+      --accent2:  #2E86C1;
+      --orange:   #D35400;
+      --green:    #1E8449;
+      --red:      #C0392B;
+      --yellow:   #F39C12;
+      --light-bg: #EBF5FB;
+      --border:   #AED6F1;
+      --text:     #1a1a1a;
+      --muted:    #555;
+    }
+
+    /* ════════════════════════════════
+       SLIDE ELEMENTS
+    ════════════════════════════════ */
+
+    /* Top accent bar */
+    .top-bar {
+      height: 7px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 100%);
+      flex-shrink: 0;
+    }
+
+    /* Bottom footer bar */
+    .bottom-bar {
+      height: 28px;
+      background: var(--accent);
+      display: flex; align-items: center;
+      padding: 0 28px;
+      flex-shrink: 0;
+      margin-top: auto;
+    }
+    .bottom-bar span {
+      font-size: 10px; color: rgba(255,255,255,0.75); letter-spacing: 0.5px;
+    }
+    .bottom-bar .slide-num {
+      margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.6);
+    }
+
+    /* Content area */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 22px 40px 14px;
+      overflow: hidden;
+    }
+
+    /* ── TITLE SLIDE ── */
+    .slide-title { flex-direction: column; }
+    .slide-title .title-body {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; padding: 0 60px;
+      background: #ffffff;
+    }
+    .slide-title .eyebrow {
+      font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--accent2); margin-bottom: 14px; font-weight: 600;
+    }
+    .slide-title h1 {
+      font-size: 38px; font-weight: 700; color: var(--accent);
+      line-height: 1.2; margin-bottom: 14px;
+    }
+    .slide-title .subtitle {
+      font-size: 14px; color: #555; margin-bottom: 22px; line-height: 1.5;
+    }
+    .title-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--light-bg); border: 1px solid var(--border);
+      border-radius: 4px; padding: 6px 14px;
+      font-size: 11px; color: var(--accent); font-weight: 600;
+    }
+    .title-right-accent {
+      position: absolute; right: 0; top: 7px; bottom: 28px;
+      width: 180px;
+      background: linear-gradient(135deg, #EBF5FB 0%, #D6EAF8 100%);
+      border-left: 3px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .title-right-accent .big-icon { font-size: 64px; opacity: 0.35; }
+
+    /* ── SECTION SLIDE ── */
+    .slide-section { flex-direction: column; }
+    .slide-section .section-body {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #EBF5FB 0%, #D6EAF8 100%);
+    }
+    .slide-section .sec-num {
+      font-size: 64px; font-weight: 700; color: rgba(31,92,153,0.12);
+      line-height: 1; margin-bottom: -10px;
+    }
+    .slide-section h2 {
+      font-size: 30px; font-weight: 700; color: var(--accent); text-align: center;
+    }
+    .slide-section .tagline {
+      font-size: 13px; color: #555; margin-top: 8px; text-align: center;
+    }
+    .section-divider {
+      width: 60px; height: 4px; background: var(--accent2);
+      border-radius: 2px; margin: 14px auto 14px;
+    }
+
+    /* ── CONTENT SLIDE HEADING ── */
+    .slide-heading {
+      font-size: 18px; font-weight: 700; color: var(--accent);
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--accent);
+      margin-bottom: 14px; flex-shrink: 0;
+    }
+
+    /* ── CARDS ── */
+    .cards { display: flex; gap: 16px; flex: 1; }
+    .card {
+      flex: 1; background: #fff; border-radius: 4px;
+      padding: 16px; border: 1px solid #D5D8DC;
+      border-top: 4px solid var(--accent);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .card .card-tag {
+      font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px; font-weight: 600;
+    }
+    .card .card-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .card .card-customer { font-size: 11px; color: var(--accent2); margin-bottom: 8px; font-weight: 600; }
+    .card p { font-size: 12px; color: #444; line-height: 1.55; }
+    .card .jira-link {
+      display: inline-block; margin-top: 8px;
+      font-size: 10px; color: var(--accent);
+      background: var(--light-bg); border-radius: 3px; padding: 3px 8px;
+      border: 1px solid var(--border); text-decoration: none; font-weight: 600;
+    }
+
+    /* ── BULLET LIST ── */
+    .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+    .bullet-list li {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: #FAFAFA; border-radius: 4px; padding: 11px 14px;
+      border: 1px solid #E5E8EC; border-left: 4px solid var(--accent2);
+    }
+    .bullet-list li .icon {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; flex-shrink: 0; font-weight: 700;
+    }
+    .bullet-list li .text { font-size: 12px; color: #333; line-height: 1.5; }
+    .bullet-list li .text strong { color: var(--accent); font-weight: 700; }
+
+    /* ── TWO COLUMN ── */
+    .two-col { display: flex; gap: 20px; flex: 1; }
+    .col { flex: 1; display: flex; flex-direction: column; }
+    .col-title {
+      font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: #888; margin-bottom: 8px; font-weight: 600;
+    }
+
+    /* ── TABLE ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-table th {
+      background: var(--accent); color: #fff; font-weight: 600;
+      padding: 7px 12px; text-align: left;
+    }
+    .data-table td { padding: 7px 12px; border-bottom: 1px solid #E5E8EC; color: #333; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .row-changed td { background: #FDEDEC; color: var(--red); font-weight: 600; }
+    .data-table .row-ok td { background: #EAFAF1; color: var(--green); }
+
+    /* ── BADGE ── */
+    .badge {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      padding: 2px 7px; border-radius: 3px; text-transform: uppercase; vertical-align: middle;
+    }
+    .badge-blue   { background: #D6EAF8; color: var(--accent); }
+    .badge-orange { background: #FDEBD0; color: var(--orange); }
+    .badge-green  { background: #D5F5E3; color: var(--green); }
+    .badge-red    { background: #FADBD8; color: var(--red); }
+
+    /* ── CALLOUT ── */
+    .callout {
+      border-radius: 4px; padding: 10px 14px;
+      border-left: 4px solid; font-size: 11px; line-height: 1.55;
+      margin-top: 10px;
+    }
+    .callout-blue   { border-color: var(--accent2); background: #EBF5FB; color: #1a4c7a; }
+    .callout-yellow { border-color: var(--yellow);  background: #FEF9E7;  color: #7d5a00; }
+    .callout-red    { border-color: var(--red);     background: #FDEDEC;  color: #8b2218; }
+
+    /* ── PILL ── */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .pill {
+      font-size: 11px; border-radius: 20px; padding: 4px 12px;
+      font-weight: 600; border: 1px solid;
+    }
+    .pill-blue   { border-color: var(--accent2); color: var(--accent);  background: #EBF5FB; }
+    .pill-green  { border-color: #1a7d40;        color: var(--green);   background: #EAFAF1; }
+    .pill-orange { border-color: #b94600;        color: var(--orange);  background: #FDEBD0; }
+
+    /* ── SUMMARY GRID ── */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; flex: 1;
+    }
+    .summary-card {
+      background: #fff; border-radius: 4px;
+      border: 1px solid #D5D8DC; border-top: 4px solid var(--accent);
+      padding: 14px 16px; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    }
+    .summary-card .s-icon { font-size: 22px; margin-bottom: 6px; }
+    .summary-card .s-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
+    .summary-card .s-value { font-size: 16px; font-weight: 700; color: var(--accent); margin: 4px 0; }
+    .summary-card .s-sub { font-size: 10px; color: #666; }
+
+    /* ── NAV ── */
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 52px; background: #2c2c2c;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; z-index: 100;
+    }
+    .nav button {
+      background: #444; border: none; color: #eee;
+      padding: 7px 20px; border-radius: 4px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: background 0.15s;
+    }
+    .nav button:hover { background: var(--accent2); }
+    .nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .nav .counter { font-size: 12px; color: #aaa; }
+    .nav .slide-label { font-size: 11px; color: #888; text-align: center; }
+
+    /* ── PROGRESS ── */
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: var(--accent2);
+      transition: width 0.3s ease; z-index: 200;
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<div class="slide-wrapper">
+<div class="deck">
+
+  <!-- ══ SLIDE 1: Title ══ -->
+  <div class="slide slide-title active" data-title="Title">
+    <div class="top-bar"></div>
+    <div class="title-body">
+      <div class="eyebrow">Epic Deep Dive &nbsp;·&nbsp; DV-13012</div>
+      <h1>Transcoding-on-Output M2</h1>
+      <div class="subtitle">Fixing RampID constraint violations &amp; enabling<br>common-domain transcoding across Clean Rooms</div>
+      <a class="title-badge" href="https://liveramp.atlassian.net/browse/DV-13012" target="_blank">
+        🔗 &nbsp;Epic: DV-13012
+      </a>
+      <div class="title-right-accent">
+        <div class="big-icon">🔄</div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">1</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 2: Why — Section ══ -->
+  <div class="slide slide-section" data-title="Why this Epic?">
+    <div class="top-bar"></div>
+    <div class="section-body">
+      <div class="sec-num">01</div>
+      <h2>Why this Epic?</h2>
+      <div class="section-divider"></div>
+      <div class="tagline">Two escalated customer failures drove this work</div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">2</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 3: Customer Requirements ══ -->
+  <div class="slide" data-title="Customer Requirements">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">Customer Requirements</div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-tag">SRV-2440 · Requirement 1</div>
+          <div class="card-title">RampID append + column conflict</div>
+          <div class="card-customer">🏢 Customer: Best Buy</div>
+          <p>Query failure with message:<br><br>
+            <em>"RampId identifier field cannot be appended with another column"</em>
+          </p>
+          <a class="jira-link" href="https://liveramp.atlassian.net/browse/SRV-2440" target="_blank">SRV-2440 ↗</a>
+        </div>
+        <div class="card">
+          <div class="card-tag">SRV · Requirement 2</div>
+          <div class="card-title">RampID projection not permitted</div>
+          <div class="card-customer">🚢 Customer: Virgin Voyages × Virgin Red</div>
+          <p>List Query has a RampID projection block and reports Fail.<br><br>
+            Error: <em>"Column 'red.rampid' has been projected as 'rampid' which is not permitted for projection."</em>
+          </p>
+          <div class="pill-row" style="margin-top:10px;">
+            <span class="pill pill-blue">CR Owner: Virgin Voyages</span>
+            <span class="pill pill-green">CR Partner: Virgin Red</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">3</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 4: POC — Section ══ -->
+  <div class="slide slide-section" data-title="POC">
+    <div class="top-bar"></div>
+    <div class="section-body">
+      <div class="sec-num">02</div>
+      <h2>Proof of Concept</h2>
+      <div class="section-divider"></div>
+      <div class="tagline">Performance validation &amp; domain transcoding design</div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">4</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 5: POC Details ══ -->
+  <div class="slide" data-title="POC Details">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">POC — What was Validated</div>
+      <ul class="bullet-list">
+        <li>
+          <div class="icon">⚡</div>
+          <div class="text">
+            <strong>Performance Optimization</strong><br>
+            List Question formatting completely removed — simpler, faster pipeline.
+          </div>
+        </li>
+        <li>
+          <div class="icon">📊</div>
+          <div class="text">
+            <strong>Benchmarking</strong><br>
+            Load-tested with <strong>1K, 1M, and 10M record sizes</strong> across distinct domains.
+            Results tracked in the benchmarking spreadsheet.
+          </div>
+        </li>
+        <li>
+          <div class="icon">🔑</div>
+          <div class="text">
+            <strong>CR Owner as Common Transcoding Domain</strong><br>
+            If the CR Owner org does not have Identity — it is now <strong>mandated</strong>.
+            Ensures a stable, consistent transcoding anchor across all collaborations.
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">5</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 6: Implementation — Section ══ -->
+  <div class="slide slide-section" data-title="What was Implemented">
+    <div class="top-bar"></div>
+    <div class="section-body">
+      <div class="sec-num">03</div>
+      <h2>What was Implemented</h2>
+      <div class="section-divider"></div>
+      <div class="tagline">Three core deliverables shipped under this epic</div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">6</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 7: Implementation Details ══ -->
+  <div class="slide" data-title="Implementation Details">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">Implementation</div>
+      <ul class="bullet-list">
+        <li>
+          <div class="icon" style="background:var(--green);">✓</div>
+          <div class="text">
+            <strong>Constraint Violation Fixes on List Questions</strong><br>
+            Resolved the root cause of RampID projection and column-append errors that were failing customer queries.
+          </div>
+        </li>
+        <li>
+          <div class="icon" style="background:var(--accent);">🔄</div>
+          <div class="text">
+            <strong>Common-Domain Transcoding</strong> &nbsp;<span class="badge badge-orange">Transcoding + RampIDEncoding FF</span><br>
+            Every dataset is transcoded to the CR Owner's domain. Controlled under a feature flag.
+          </div>
+        </li>
+        <li>
+          <div class="icon" style="background:#7D3C98;">📤</div>
+          <div class="text">
+            <strong>Export Transcoding</strong><br>
+            If RampID is part of output fields, the dataset is re-encoded to the <em>Partner's destination domain</em> at export time.
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">7</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 8: Additional Coverage ══ -->
+  <div class="slide" data-title="Additional Coverage — DV-13417">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">Additionally Covered &nbsp;<span class="badge badge-blue">DV-13417</span>&nbsp; Unmatched Records FF Logic</div>
+      <ul class="bullet-list">
+        <li>
+          <div class="icon" style="background:var(--green);">📌</div>
+          <div class="text">
+            <strong>Existing CRQs:</strong> No change in behavior, even if the account-level flag is enabled.
+          </div>
+        </li>
+        <li>
+          <div class="icon" style="background:var(--accent);">🆕</div>
+          <div class="text">
+            <strong>New CRQs:</strong> <code style="background:#EBF5FB; padding:1px 5px; border-radius:3px; font-size:11px; color:var(--accent);">RETAIN_UNMATCHED_RECORDS</code> capability applied <strong>by default</strong>.
+          </div>
+        </li>
+        <li>
+          <div class="icon" style="background:var(--yellow);">⚙️</div>
+          <div class="text">
+            <strong>Opt-out for new CRQs:</strong> Set <code style="background:#FEF9E7; padding:1px 5px; border-radius:3px; font-size:11px; color:#7d5a00;">SKIP_UNMATCHED_RECORDS = true</code> to disable default behavior.
+          </div>
+        </li>
+        <li>
+          <div class="icon" style="background:var(--red);">🔁</div>
+          <div class="text">
+            <strong>Existing CRQs that want the capability:</strong> Remove the migrated <code style="background:#FDEDEC; padding:1px 5px; border-radius:3px; font-size:11px; color:var(--red);">SKIP_UNMATCHED_RECORDS</code> property or set it to <code style="background:#FDEDEC; padding:1px 5px; border-radius:3px; font-size:11px; color:var(--red);">false</code>.
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">8</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 9: Challenges — Section ══ -->
+  <div class="slide slide-section" data-title="Challenges">
+    <div class="top-bar"></div>
+    <div class="section-body">
+      <div class="sec-num">04</div>
+      <h2>Challenges</h2>
+      <div class="section-divider"></div>
+      <div class="tagline">Count mismatches &amp; feature flag testing scope</div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">9</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 10: Count Mismatch ══ -->
+  <div class="slide" data-title="Count Mismatch Challenge">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">Challenge — Count Mismatches</div>
+      <p style="font-size:11px; color:#777; margin-bottom:12px; flex-shrink:0;">
+        Dataset: <strong>100 records</strong> &nbsp;·&nbsp; 90 valid RampIDs &nbsp;·&nbsp; 5 Unmatched &nbsp;·&nbsp; 5 Invalid RampIDs
+      </p>
+      <div class="two-col">
+        <div class="col">
+          <div class="col-title">Before (Old Behaviour)</div>
+          <table class="data-table">
+            <thead><tr><th>Dataset</th><th>Domain</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr class="row-ok"><td>DS1</td><td>Owner</td><td>90</td></tr>
+              <tr class="row-ok"><td>DS1</td><td>Partner</td><td>90</td></tr>
+              <tr class="row-ok"><td>DS2</td><td>Partner</td><td>90</td></tr>
+            </tbody>
+          </table>
+          <div class="callout callout-blue">All datasets consistently return 90 — only valid RampIDs pass through.</div>
+        </div>
+        <div class="col">
+          <div class="col-title">After (New Behaviour)</div>
+          <table class="data-table">
+            <thead><tr><th>Dataset</th><th>Domain</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr class="row-changed"><td>DS1</td><td>Owner</td><td>100 ⚠</td></tr>
+              <tr class="row-ok"><td>DS1</td><td>Partner</td><td>90</td></tr>
+              <tr class="row-ok"><td>DS2</td><td>Partner</td><td>90</td></tr>
+            </tbody>
+          </table>
+          <div class="callout callout-yellow">Owner dataset skips transcoding → includes all 100 records (unmatched + invalid).</div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">10</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 11: FF Testing ══ -->
+  <div class="slide" data-title="Feature Flag Testing">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">Challenge — Feature Flag Testing Scope</div>
+      <div class="callout callout-yellow" style="margin-bottom:14px; flex-shrink:0;">
+        All three features are gated behind the <strong>Transcoding + RampIDEncoding</strong> feature flag.
+        Thorough end-to-end testing under this flag is required before broader rollout.
+      </div>
+      <div class="pill-row" style="flex-shrink:0;">
+        <span class="pill pill-blue">Constraint Violation Fixes</span>
+        <span class="pill pill-green">Common-Domain Transcoding</span>
+        <span class="pill pill-orange">Export Transcoding</span>
+      </div>
+      <div class="callout callout-blue" style="margin-top:14px; flex-shrink:0;">
+        Each capability must be validated end-to-end with the FF enabled — including count consistency,
+        RampID encoding correctness, and export output verification.
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">11</span>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 12: Summary ══ -->
+  <div class="slide" data-title="Summary">
+    <div class="top-bar"></div>
+    <div class="content">
+      <div class="slide-heading">Summary</div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="s-icon">👥</div>
+          <div class="s-label">Customers Unblocked</div>
+          <div class="s-value">2+</div>
+          <div class="s-sub">Best Buy · Virgin Voyages</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">🔧</div>
+          <div class="s-label">Core Deliverables</div>
+          <div class="s-value">3</div>
+          <div class="s-sub">Fixes · Transcoding · Exports</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">📋</div>
+          <div class="s-label">Also Shipped</div>
+          <div class="s-value">DV-13417</div>
+          <div class="s-sub">Unmatched Records FF Logic</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">⚡</div>
+          <div class="s-label">Benchmarked At</div>
+          <div class="s-value">1K · 1M · 10M</div>
+          <div class="s-sub">Distinct domain record sizes</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">🏴</div>
+          <div class="s-label">Feature Flag</div>
+          <div class="s-value">Required</div>
+          <div class="s-sub">Transcoding + RampIDEncoding</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-icon">⚠️</div>
+          <div class="s-label">Key Watch-out</div>
+          <div class="s-value">Count Delta</div>
+          <div class="s-sub">Owner DS: 100 vs Partner DS: 90</div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <span>LiveRamp · Clean Room Engineering</span>
+      <span class="slide-num">12</span>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+</div><!-- /slide-wrapper -->
+
+<!-- ── Navigation ── -->
+<nav class="nav">
+  <button id="prev" onclick="navigate(-1)" disabled>&#8592; Prev</button>
+  <div style="text-align:center;">
+    <div class="counter" id="counter">1 / 12</div>
+    <div class="slide-label" id="slideLabel">Title</div>
+  </div>
+  <button id="next" onclick="navigate(1)">Next &#8594;</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+
+  function navigate(dir) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(slides.length - 1, current + dir));
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+    document.getElementById('slideLabel').textContent = slides[current].dataset.title || '';
+    document.getElementById('prev').disabled = current === 0;
+    document.getElementById('next').disabled = current === slides.length - 1;
+    document.getElementById('progress').style.width = `${((current + 1) / slides.length) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+  });
+
+  document.getElementById('progress').style.width = `${(1 / slides.length) * 100}%`;
+</script>
+</body>
+</html>
