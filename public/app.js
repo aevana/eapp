@@ -582,6 +582,7 @@ function renderCustomerPage(customer, bills) {
           ${b.status === 'active' ? `<button class="btn btn-icon btn-stop" onclick="stopBill('${b.id}')">⏹ Stop</button>` : ''}
           <button class="btn btn-icon btn-del" onclick="confirmDelete('bill','${b.id}','bill for ${esc(customer.name)}')">🗑 Delete</button>
           <button class="btn btn-whatsapp btn-icon" onclick="sendWhatsAppBillReminderFromDetail('${customer.id}','${b.id}')">📱 Remind</button>
+          <button class="btn btn-notify btn-icon" onclick="openBillNotification('${customer.id}','${b.id}')">💬 Notify</button>
           ${b.status === 'active' ? `<button class="btn btn-monthly btn-icon" onclick="openMonthlyReminder('${customer.id}','${b.id}')">📅 Monthly</button>` : ''}
         </div>
       </div>
@@ -1375,6 +1376,86 @@ function sendMonthlyBillReminder(customerId, billId, month, year) {
     pending:    '₹' + pending.toLocaleString('en-IN'),
     pendingAmt: pending,
   });
+}
+
+// Open bill notification with editable message
+function openBillNotification(customerId, billId) {
+  const customer = trackerData.find(c => c.id === customerId) ||
+    { ...allCustomers.find(c => c.id === customerId), bills: allBills.filter(b => b.customerId === customerId) };
+  const bill = (customer?.bills || []).find(b => b.id === billId) || allBills.find(b => b.id === billId);
+  if (!customer || !bill) { showToast('Could not load bill data.', 'error'); return; }
+
+  const message = formatBillNotification(customer, [bill]);
+  promptWhatsApp(customer.mobile, message);
+}
+
+// Format bill notification message
+function formatBillNotification(customer, bills) {
+  const s = getSettings();
+  const lines = [];
+  lines.push(`Dear ${customer.name},`);
+  lines.push('');
+
+  // Bill rows — grouped by customer or all individual bills
+  if (bills.length === 1) {
+    const b = bills[0];
+    const start = new Date(b.startDate); start.setHours(0,0,0,0);
+    const stop  = b.stopDate ? new Date(b.stopDate) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+    stop.setHours(0,0,0,0);
+    const days = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+    const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+    lines.push(`Bill: ${fmtDate(start)} → ${b.stopDate ? fmtDate(stop) : 'Running'} · ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}`);
+  } else {
+    bills.forEach((b, i) => {
+      const start = new Date(b.startDate); start.setHours(0,0,0,0);
+      const stop  = b.stopDate ? new Date(b.stopDate) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+      stop.setHours(0,0,0,0);
+      const days = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+      const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+      lines.push(`Set${i + 1}: ${fmtDate(start)} → ${b.stopDate ? fmtDate(stop) : 'Running'} · ${days} day${days !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}`);
+    });
+  }
+
+  // Monthly breakdown
+  const monthlyTotals = {};
+  let totalDays = 0, totalAmount = 0;
+  bills.forEach(b => {
+    const start = new Date(b.startDate); start.setHours(0,0,0,0);
+    const stop  = b.stopDate ? new Date(b.stopDate) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+    stop.setHours(0,0,0,0);
+    const days = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+    const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+    totalDays += days;
+    totalAmount += amount;
+
+    const monthly = getMonthlyBreakdown(b, (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })());
+    Object.entries(monthly).forEach(([month, amt]) => {
+      monthlyTotals[month] = (monthlyTotals[month] || 0) + amt;
+    });
+  });
+
+  const monthlyStr = Object.entries(monthlyTotals)
+    .map(([month, amt]) => `${month}: ${amt.toLocaleString()}`)
+    .join('  |  ');
+
+  lines.push('');
+  if (monthlyStr) lines.push(monthlyStr);
+
+  const arrears = bills.reduce((s, b) => s + (b.arrears || 0), 0);
+  const collected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
+
+  lines.push(`Days: ${totalDays}  |  Total: ₹${totalAmount.toLocaleString()}`);
+  if (arrears > 0) lines.push(`Arrears: ₹${arrears.toLocaleString()}`);
+  lines.push(`Paid: ₹${collected.toLocaleString()}`);
+
+  lines.push('');
+  if (s.operatorMobile) {
+    lines.push(`For any queries, please contact ${s.operatorMobile}.`);
+  } else {
+    lines.push(`For any queries, please contact us.`);
+  }
+
+  return lines.join('\n');
 }
 
 // ══════════════════════════════════════════════════════════════
