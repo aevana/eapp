@@ -3,6 +3,7 @@ let allCustomers   = [];
 let allBills       = [];
 let trackerData    = [];   // by-customer tracker cache
 let lastBSData     = null; // last loaded balance-sheet payload
+let homeSortBy     = 'line'; // sort mode for home page running sets
 
 // ── Validation helpers ─────────────────────────────────────────
 function showFieldError(id, msg) {
@@ -221,6 +222,14 @@ function switchTracker(type) {
   document.getElementById(`tracker-${type}`).classList.add('active');
 }
 
+function setSortRunning(sortBy) {
+  homeSortBy = sortBy;
+  document.querySelectorAll('.home-sort-buttons .sort-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sort === sortBy);
+  });
+  loadHome();
+}
+
 // ══════════════════════════════════════════════════════════════
 //  HOME
 // ══════════════════════════════════════════════════════════════
@@ -247,6 +256,28 @@ async function loadHome() {
         }
       });
     });
+
+    // ── sort running cards based on selected mode
+    if (homeSortBy === 'line') {
+      runningCards.sort((a, b) => {
+        const lineA = a.cust.line || '—';
+        const lineB = b.cust.line || '—';
+        return lineA.localeCompare(lineB) || a.cust.name.localeCompare(b.cust.name);
+      });
+    } else if (homeSortBy === 'days') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      runningCards.sort((a, b) => {
+        const startA = new Date(a.bill.startDate); startA.setHours(0,0,0,0);
+        const startB = new Date(b.bill.startDate); startB.setHours(0,0,0,0);
+        const daysA = Math.max(1, Math.round((today - startA) / 86400000) + 1);
+        const daysB = Math.max(1, Math.round((today - startB) / 86400000) + 1);
+        return daysB - daysA;
+      });
+    } else if (homeSortBy === 'sets') {
+      runningCards.sort((a, b) => {
+        return (b.bill.quantity || 0) - (a.bill.quantity || 0);
+      });
+    }
 
     // ── stat row
     document.getElementById('hs-val-customers').textContent = data.length;

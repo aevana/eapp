@@ -80,6 +80,11 @@
       <!-- Running sets section -->
       <div class="home-section-header">
         <span>⚡ Currently Running Sets</span>
+        <div class="home-sort-buttons">
+          <button class="sort-btn active" data-sort="line" onclick="setSortRunning('line')">Line</button>
+          <button class="sort-btn" data-sort="days" onclick="setSortRunning('days')">Days Running</button>
+          <button class="sort-btn" data-sort="sets" onclick="setSortRunning('sets')">Set Count</button>
+        </div>
       </div>
       <div id="home-running-list">
         <p class="empty-row">Loading…</p>
