@@ -308,19 +308,24 @@ async function loadHome() {
     }
 
     const today = new Date(); today.setHours(0,0,0,0);
-    list.innerHTML = runningCards.map(({ cust, bills, totalQty, totalPending, totalCollected }) => {
-      const earliestStart = bills.reduce((min, b) => {
-        const d = new Date(b.startDate);
-        return d < min ? d : min;
-      }, new Date());
-      earliestStart.setHours(0,0,0,0);
-      const days = Math.max(1, Math.round((today - earliestStart) / 86400000) + 1);
-
-      const totalAccrued = bills.reduce((sum, b) => {
-        return sum + (days * (b.perDayCharge || 0) * (b.quantity || 1));
-      }, 0);
-
+    list.innerHTML = runningCards.map(({ cust, bills, totalQty }) => {
       const initials = cust.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
+
+      let grandTotal = 0;
+      const billRows = bills.map(b => {
+        const start = new Date(b.startDate); start.setHours(0,0,0,0);
+        const stop  = b.stopDate ? new Date(b.stopDate) : today;
+        stop.setHours(0,0,0,0);
+        const days   = Math.max(1, Math.round((stop - start) / 86400000) + 1);
+        const amount = days * (b.quantity || 1) * (b.perDayCharge || 0);
+        grandTotal  += amount;
+        const stopLabel = b.stopDate ? fmtDate(stop) : 'Running';
+        return `<div class="home-bill-row">
+          <span class="home-bill-dates">${fmtDate(start)} → ${stopLabel}</span>
+          <span class="home-bill-detail">${days} day${days !== 1 ? 's' : ''} · ${b.quantity} set${b.quantity !== 1 ? 's' : ''} · ₹${amount.toLocaleString()}</span>
+        </div>`;
+      }).join('');
+
       return `
         <div class="home-run-card" onclick="switchToCustomer('${cust.id}')">
           <div class="home-run-avatar">${initials}</div>
@@ -330,24 +335,8 @@ async function loadHome() {
               <span class="home-run-name">${esc(cust.name)}${cust.line ? ` (${esc(cust.line)})` : ''}</span>
               <span class="home-run-mobile">${esc(cust.mobile)}</span>
             </div>
-            <div class="home-run-meta">
-              <span>📅 ${fmtDate(earliestStart)}</span>
-              <span>⚡ ${days} day${days !== 1 ? 's' : ''} running</span>
-            </div>
-            <div class="home-run-amounts">
-              <div class="home-run-amt-block">
-                <span class="home-run-amt-label">Accrued</span>
-                <span class="home-run-amt-val">₹${totalAccrued.toLocaleString()}</span>
-              </div>
-              <div class="home-run-amt-block home-run-amt-pending">
-                <span class="home-run-amt-label">Pending</span>
-                <span class="home-run-amt-val">₹${totalPending.toLocaleString()}</span>
-              </div>
-              <div class="home-run-amt-block home-run-amt-collected">
-                <span class="home-run-amt-label">Collected</span>
-                <span class="home-run-amt-val">₹${totalCollected.toLocaleString()}</span>
-              </div>
-            </div>
+            <div class="home-bill-list">${billRows}</div>
+            <div class="home-bill-total">Total: ₹${grandTotal.toLocaleString()}</div>
           </div>
         </div>
       `;
