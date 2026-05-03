@@ -39,9 +39,10 @@ const DB = (() => {
 
   function enrichBill(bill, customers) {
     const customer  = customers.find(c => c.id === bill.customerId);
-    const startDate = new Date(bill.startDate);
-    const stopDate  = bill.stopDate ? new Date(bill.stopDate) : new Date();
-    const days      = Math.max(1, Math.ceil((stopDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
+    const toMidnight = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
+    const startDate = toMidnight(bill.startDate);
+    const stopDate  = bill.stopDate ? toMidnight(bill.stopDate) : toMidnight(new Date());
+    const days      = Math.max(1, Math.round((stopDate - startDate) / 86400000) + 1);
     const total     = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
     const pending   = Math.max(0, total + (bill.arrears || 0) - (bill.collectedAmount || 0));
     return {
