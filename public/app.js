@@ -274,7 +274,7 @@ async function loadHome() {
           <div class="home-run-qty-badge">${bill.quantity} set${bill.quantity !== 1 ? 's' : ''}</div>
           <div class="home-run-body">
             <div class="home-run-top">
-              <span class="home-run-name">${esc(cust.name)}</span>
+              <span class="home-run-name">${esc(cust.name)}${cust.line ? ` (${esc(cust.line)})` : ''}</span>
               <span class="home-run-mobile">${esc(cust.mobile)}</span>
             </div>
             <div class="home-run-meta">
@@ -344,10 +344,11 @@ function renderCustomers(list) {
     const hasActive      = activeBills.length > 0;
     return `
       <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+        ${c.line ? `<div class="cust-line-corner-badge">${esc(c.line)}</div>` : ''}
         <div class="cust-card-top">
           <div class="cust-card-num">${idx + 1}</div>
           <div class="cust-card-info">
-            <div class="cust-card-name">${esc(c.name)}${c.line ? ` <span class="cust-line-badge">${esc(c.line)}</span>` : ''}</div>
+            <div class="cust-card-name">${esc(c.name)}</div>
             <div class="cust-card-mobile">${esc(c.mobile)}</div>
             <div class="cust-card-stats">
               <span class="cstat"><span>Bills</span><strong>${bills.length}</strong></span>
@@ -404,6 +405,7 @@ function renderCustomersByLine(list) {
       const hasActive      = activeBills.length > 0;
       return `
         <div class="cust-card" onclick="openCustomerPage('${c.id}')">
+          ${c.line ? `<div class="cust-line-corner-badge">${esc(c.line)}</div>` : ''}
           <div class="cust-card-top">
             <div class="cust-card-num">${idx + 1}</div>
             <div class="cust-card-info">

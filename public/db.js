@@ -97,10 +97,10 @@ const DB = (() => {
     return readCustomers();
   }
 
-  function addCustomer({ name, mobile, address }) {
+  function addCustomer({ name, mobile, address, line }) {
     if (!name || !mobile) throw new Error('Name and mobile are required');
     const customers = readCustomers();
-    const customer = { id: uuid(), name, mobile, address: address || '', createdAt: new Date().toISOString() };
+    const customer = { id: uuid(), name, mobile, line: line || '', address: address || '', createdAt: new Date().toISOString() };
     customers.push(customer);
     write(KEYS.customers, customers);
     return customer;

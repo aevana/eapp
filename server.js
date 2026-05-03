@@ -105,10 +105,10 @@ app.get('/api/customers', (req, res) => {
 });
 
 app.post('/api/customers', (req, res) => {
-  const { name, mobile, address } = req.body;
+  const { name, mobile, address, line } = req.body;
   if (!name || !mobile) return res.status(400).json({ error: 'Name and mobile are required' });
   const customers = readCustomers();
-  const customer = { id: uuidv4(), name, mobile, address: address || '', createdAt: new Date().toISOString() };
+  const customer = { id: uuidv4(), name, mobile, line: line || '', address: address || '', createdAt: new Date().toISOString() };
   customers.push(customer);
   writeJSON(CUSTOMERS_FILE, customers);
   res.status(201).json(customer);
