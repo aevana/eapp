@@ -12,23 +12,6 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[skip version bump]')"
 
     steps:
-      # TEMPORARY diagnostic: reports on PAT_TOKEN without printing it. Remove after debugging.
-      - name: Diagnose PAT_TOKEN
-        env:
-          PAT: ${{ secrets.PAT_TOKEN }}
-        run: |
-          if [ -z "$PAT" ]; then echo "PAT_TOKEN: EMPTY (secret not available to this run)"; exit 0; fi
-          echo "PAT_TOKEN: set, length ${#PAT}"
-          case "$PAT" in
-            ghp_*) echo "type: classic (ghp_ prefix)";;
-            github_pat_*) echo "type: fine-grained (github_pat_ prefix)";;
-            *) echo "type: unrecognised prefix";;
-          esac
-          if [ "$PAT" != "$(printf '%s' "$PAT" | tr -d '[:space:]')" ]; then echo "WARNING: value contains whitespace or newlines"; fi
-          echo "GET /user -> HTTP $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: token $PAT" https://api.github.com/user)"
-          echo "GET /repos/aevana/eapp -> HTTP $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: token $PAT" https://api.github.com/repos/aevana/eapp)"
-          echo "GET /repos/aevana/eapp/contents -> HTTP $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: token $PAT" https://api.github.com/repos/aevana/eapp/contents/public/version.txt)"
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
