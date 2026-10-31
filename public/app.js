@@ -446,6 +446,7 @@ function renderCustomers(list) {
         </div>
         <div class="cust-card-actions" onclick="event.stopPropagation()">
           ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+          <button class="btn btn-icon btn-pay" title="All payments" onclick="openCustomerPayments('${c.id}')">💰</button>
           <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
           <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
           <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
@@ -507,6 +508,7 @@ function renderCustomersByLine(list) {
           </div>
           <div class="cust-card-actions" onclick="event.stopPropagation()">
             ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+            <button class="btn btn-icon btn-pay" title="All payments" onclick="openCustomerPayments('${c.id}')">💰</button>
             <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
             <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
             <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
@@ -1959,7 +1961,7 @@ async function doDelete(type, id) {
     if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); closeCustomerPage(); }
     if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); refreshCustomerPage(); }
     if (type === 'monthly-charge') { loadBalanceSheet(); }
-    if (type === 'payment')        { refreshAfterPaymentChange(); }
+    if (type === 'payment')        { refreshAfterPaymentChange(); refreshCustomerPaymentsModal(); }
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -2408,7 +2410,7 @@ function renderPaymentsTable(list) {
   }).join('');
 }
 
-async function openPaymentModal(id = null) {
+async function openPaymentModal(id = null, presetCustomerId = null) {
   try {
     const customers = await apiFetch('/api/customers');
     allCustomers = customers;
@@ -2429,6 +2431,7 @@ async function openPaymentModal(id = null) {
       document.getElementById('pay-note').value     = p.note || '';
     } else {
       document.getElementById('pay-date').value = toDateStr(new Date());
+      if (presetCustomerId) document.getElementById('pay-customer').value = presetCustomerId;
     }
     await loadPaymentBills();
     openModal('modal-payment');
@@ -2552,4 +2555,72 @@ function refreshAfterPaymentChange() {
   loadTrackerByCustomer();
   refreshCustomerPage();
   loadHome();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ALL PAYMENTS OF ONE CUSTOMER
+// ══════════════════════════════════════════════════════════════
+
+let customerPaymentsId = null; // customer shown in the customer-payments modal
+
+async function openCustomerPayments(customerId) {
+  customerPaymentsId = customerId;
+  openModal('modal-customer-payments');
+  await refreshCustomerPaymentsModal();
+}
+
+async function refreshCustomerPaymentsModal() {
+  const customerId = customerPaymentsId;
+  if (!customerId || !document.getElementById('modal-customer-payments').classList.contains('open')) return;
+  const money = n => `₹${(n || 0).toLocaleString()}`;
+  try {
+    const [customers, payments, bills] = await Promise.all([
+      apiFetch('/api/customers'),
+      apiFetch(`/api/payments?customerId=${customerId}`),
+      apiFetch(`/api/bills?customerId=${customerId}`),
+    ]);
+    const c = customers.find(x => x.id === customerId);
+    document.getElementById('cp-title').textContent = `Payments · ${c ? c.name : ''}`;
+    document.getElementById('cp-sub').textContent   = c ? c.mobile : '';
+
+    const received = payments.reduce((s, p) => s + p.amount, 0);
+    const applied  = payments.reduce((s, p) => s + p.allocated, 0);
+    const credit   = payments.reduce((s, p) => s + p.credit, 0);
+    const pending  = bills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
+    document.getElementById('cp-summary').innerHTML = `
+      <div class="summary-card sc-collected"><div class="sc-label">Received</div><div class="sc-value">${money(received)}</div></div>
+      <div class="summary-card sc-pending"><div class="sc-label">Pending</div><div class="sc-value">${money(pending)}</div></div>
+      <div class="summary-card"><div class="sc-label">Applied to bills</div><div class="sc-value">${money(applied)}</div></div>
+      <div class="summary-card"><div class="sc-label">Credit</div><div class="sc-value">${money(credit)}</div></div>`;
+
+    const tb = document.getElementById('cp-tbody');
+    tb.innerHTML = payments.length
+      ? payments.map(p => {
+          const applied = p.allocations.length
+            ? p.allocations.map(a => `${esc(billPeriodLabel(a.billStartDate, a.billStopDate))}: ₹${a.amount.toLocaleString()}`).join('<br>')
+            : '<span class="pay-hint">Not applied (credit)</span>';
+          return `<tr>
+            <td>${fmtDate(p.date)}</td>
+            <td>${money(p.amount)}</td>
+            <td>${applied}</td>
+            <td>${p.credit > 0 ? money(p.credit) : '—'}</td>
+            <td>${esc(p.mode || '')}${p.note ? `<br><span class="pay-hint">${esc(p.note)}</span>` : ''}</td>
+            <td><div class="actions-cell">
+              <button class="btn btn-icon btn-edit" title="Edit" onclick="editPaymentFromCustomer('${p.id}')">✏️</button>
+              <button class="btn btn-icon btn-del" title="Delete" onclick="confirmDelete('payment','${p.id}','${money(p.amount)} payment')">🗑</button>
+            </div></td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="6" class="empty-row">No payments recorded for this customer</td></tr>';
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function recordPaymentForCustomer() {
+  closeModal('modal-customer-payments');
+  openPaymentModal(null, customerPaymentsId);
+}
+
+function editPaymentFromCustomer(paymentId) {
+  closeModal('modal-customer-payments');
+  openPaymentModal(paymentId);
 }
