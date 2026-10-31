@@ -2575,24 +2575,117 @@ async function submitPayment(e) {
     { id: 'pay-amount',   label: 'Amount Received', required: true, min: 1 },
   ])) return;
   const id = document.getElementById('pay-id').value;
-  const allocations = [...document.querySelectorAll('.pay-alloc-input')]
-    .map(i => ({ billId: i.dataset.billId, amount: parseFloat(i.value) || 0 }))
-    .filter(a => a.amount > 0);
-  const body = {
+  const body = readPaymentForm();
+  if (id) {
+    // Editing an existing payment saves directly.
+    try {
+      await apiFetch(`/api/payments/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      closeModal('modal-payment');
+      showToast('Payment updated!', 'success');
+      refreshAfterPaymentChange();
+    } catch (err) { showToast(err.message, 'error'); }
+    return;
+  }
+  // New payment: show the receipt message first; nothing is saved until the user chooses.
+  try {
+    const { mobile, text } = await buildPaymentReceipt(body);
+    pendingPayment = { body, mobile };
+    paymentReceiptDefault = text;
+    document.getElementById('wa-pay-msg').value = text;
+    document.getElementById('wa-pay-whatsapp-btn').disabled = !mobile.replace(/\D/g, '');
+    document.getElementById('wa-pay-mobile-hint').textContent = mobile
+      ? `Will be sent to ${mobile}`
+      : 'Customer has no mobile number, so WhatsApp is not available.';
+    openModal('modal-payment-wa');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function readPaymentForm() {
+  return {
     customerId:  document.getElementById('pay-customer').value,
     date:        document.getElementById('pay-date').value,
     amount:      parseFloat(document.getElementById('pay-amount').value),
     mode:        document.getElementById('pay-mode').value,
     note:        document.getElementById('pay-note').value.trim(),
-    allocations,
+    allocations: [...document.querySelectorAll('.pay-alloc-input')]
+      .map(i => ({ billId: i.dataset.billId, amount: parseFloat(i.value) || 0 }))
+      .filter(a => a.amount > 0),
   };
+}
+
+// Receipt text for a payment that is about to be saved. Pending is what the
+// customer still owes after this payment is applied.
+async function buildPaymentReceipt(body) {
+  const customers = await apiFetch('/api/customers');
+  const customer  = customers.find(c => c.id === body.customerId);
+  const bills     = await apiFetch(`/api/bills?customerId=${body.customerId}`);
+  const applied   = round2Js(body.allocations.reduce((s, a) => s + a.amount, 0));
+  const credit    = round2Js(body.amount - applied);
+  const pendingBefore = bills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
+  const pendingAfter  = Math.max(0, round2Js(pendingBefore - applied));
+  const money = n => `₹${round2Js(n).toLocaleString()}`;
+  const operator = getSettings().operatorMobile;
+
+  const lines = [
+    `Dear ${customer ? customer.name : ''},`,
+    '',
+    `*Payment received* ✅`,
+    '',
+    `*Date:* ${fmtDate(body.date)}`,
+    `*Amount:* ${money(body.amount)}`,
+    `*Mode:* ${body.mode}`,
+  ];
+  if (body.note) lines.push(`*Note:* ${body.note}`);
+  if (body.allocations.length) {
+    lines.push('', '*Applied to:*');
+    body.allocations.forEach(a => {
+      const b = bills.find(x => x.id === a.billId);
+      lines.push(`• ${b ? billPeriodLabel(b.startDate, b.stopDate) : 'Bill'} — ${money(a.amount)}`);
+    });
+  }
+  if (credit > 0) lines.push('', `*Advance / credit:* ${money(credit)}`);
+  lines.push('', `*Balance pending:* ${money(pendingAfter)}`, '');
+  lines.push(operator ? `Contact: ${operator} | Thank you!` : 'For any queries, please contact us. Thank you!');
+  return { mobile: customer ? customer.mobile : '', text: lines.join('\n') };
+}
+
+let pendingPayment = null;        // { body, mobile } waiting for the user's choice
+let paymentReceiptDefault = '';   // generated text, used by "Reset"
+
+// Formatting buttons: wrap the selected text in WhatsApp markers.
+function wrapReceiptSelection(marker) {
+  const ta = document.getElementById('wa-pay-msg');
+  const { selectionStart: a, selectionEnd: b, value } = ta;
+  const selected = value.slice(a, b) || 'text';
+  ta.value = value.slice(0, a) + marker + selected + marker + value.slice(b);
+  ta.focus();
+  ta.setSelectionRange(a + marker.length, a + marker.length + selected.length);
+}
+
+function resetReceiptText() {
+  document.getElementById('wa-pay-msg').value = paymentReceiptDefault;
+}
+
+// "Skip & Save" (sendWhatsApp = false) or "WhatsApp & Save".
+async function savePendingPayment(sendWhatsApp) {
+  if (!pendingPayment) return;
+  const { body, mobile } = pendingPayment;
+  const text = document.getElementById('wa-pay-msg').value;
+  const digits = (mobile || '').replace(/\D/g, '');
+  // Open WhatsApp first, while the click is still a user gesture (pop-up blockers).
+  if (sendWhatsApp && digits) {
+    window.open(`https://wa.me/91${digits}?text=${encodeURIComponent(text)}`, '_blank');
+  }
   try {
-    if (id) await apiFetch(`/api/payments/${id}`, { method: 'PUT',  body: JSON.stringify(body) });
-    else    await apiFetch('/api/payments',       { method: 'POST', body: JSON.stringify(body) });
+    await apiFetch('/api/payments', { method: 'POST', body: JSON.stringify(body) });
+    pendingPayment = null;
+    closeModal('modal-payment-wa');
     closeModal('modal-payment');
-    showToast(id ? 'Payment updated!' : 'Payment recorded!', 'success');
+    showToast(sendWhatsApp ? 'Payment saved and WhatsApp opened.' : 'Payment saved.', 'success');
     refreshAfterPaymentChange();
-  } catch (err) { showToast(err.message, 'error'); }
+  } catch (err) {
+    showToast(`Payment NOT saved: ${err.message}`, 'error');
+  }
 }
 
 // Payments change what every bill shows as paid, so refresh all views.

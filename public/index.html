@@ -831,6 +831,30 @@
     </div>
   </div>
 
+  <!-- Payment receipt: shown before a new payment is saved -->
+  <div id="modal-payment-wa" class="modal-overlay" onclick="closeModalOutside(event,'modal-payment-wa')">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>Send payment receipt?</h3>
+        <button class="modal-close" onclick="closeModal('modal-payment-wa')">✕</button>
+      </div>
+      <p class="pay-hint">Nothing is saved until you choose an option below. Edit the message if you like.</p>
+      <div class="date-shortcuts" style="margin:.5rem 0">
+        <button type="button" class="date-chip" onclick="wrapReceiptSelection('*')"><strong>B</strong> Bold</button>
+        <button type="button" class="date-chip" onclick="wrapReceiptSelection('_')"><em>I</em> Italic</button>
+        <button type="button" class="date-chip" onclick="wrapReceiptSelection('~')"><s>S</s> Strike</button>
+        <button type="button" class="date-chip" onclick="resetReceiptText()">↺ Reset text</button>
+      </div>
+      <textarea id="wa-pay-msg" rows="12" style="font-size:.85rem;line-height:1.6;font-family:monospace;"></textarea>
+      <p class="pay-hint" id="wa-pay-mobile-hint"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-payment-wa')">← Back to edit</button>
+        <button type="button" class="btn btn-secondary" onclick="savePendingPayment(false)">Skip &amp; Save</button>
+        <button type="button" class="btn btn-whatsapp" id="wa-pay-whatsapp-btn" onclick="savePendingPayment(true)">📱 WhatsApp &amp; Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Add Bill -->
   <div id="modal-add-bill" class="modal-overlay" onclick="closeModalOutside(event,'modal-add-bill')">
     <div class="modal modal-wide">
