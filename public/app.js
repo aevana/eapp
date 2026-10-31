@@ -2028,23 +2028,56 @@ function triggerRestoreBackup() {
   if (inp) { inp.value = ''; inp.click(); }
 }
 
+// Reads a picked file as text. Older Android WebViews lack Blob.text(),
+// so fall back to FileReader.
+function readFileAsText(file) {
+  if (typeof file.text === 'function') return file.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('unknown read error'));
+    reader.readAsText(file);
+  });
+}
+
 async function handleRestoreFile(event) {
   const file = event.target.files[0];
   if (!file) return;
+
+  let text;
   try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if (!Array.isArray(data.customers) || !Array.isArray(data.bills)) {
-      showToast('Invalid backup file — missing customers or bills.', 'error'); return;
-    }
+    text = await readFileAsText(file);
+  } catch (e) {
+    showToast(`Could not read the file: ${e.message || e.name || 'unknown error'}. Try copying it to Downloads and picking it again.`, 'error');
+    return;
+  }
+  if (!text || !text.trim()) {
+    showToast('The selected file is empty.', 'error');
+    return;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    showToast(`This is not a backup file (${file.name || 'selected file'} is not valid JSON). Pick the ebt-backup-….json file.`, 'error');
+    return;
+  }
+  if (!data || !Array.isArray(data.customers) || !Array.isArray(data.bills)) {
+    showToast('Invalid backup file — missing customers or bills.', 'error');
+    return;
+  }
+
+  try {
     window._pendingRestore = data;
-    const d = document;
-    d.getElementById('restore-count').textContent =
+    document.getElementById('restore-count').textContent =
       `${data.customers.length} customers · ${data.bills.length} bills · ${(data.payments || []).length} payments · ${(data.charges || []).length} monthly charges`;
-    d.getElementById('restore-exported-at').textContent =
+    document.getElementById('restore-exported-at').textContent =
       data.exportedAt ? new Date(data.exportedAt).toLocaleString('en-IN') : 'Unknown';
     openModal('modal-restore-confirm');
-  } catch (e) { showToast('Could not read backup file.', 'error'); }
+  } catch (e) {
+    showToast(`Could not show backup details: ${e.message}`, 'error');
+  }
 }
 
 function doRestoreBackup() {
@@ -2219,7 +2252,7 @@ function importCSVFile(type) {
 async function handleCSVImport(event, type) {
   const file = event.target.files[0];
   if (!file) return;
-  const text = await file.text();
+  const text = await readFileAsText(file);
   const rows = parseCSVText(text);
   if (rows.length < 2) { showToast('CSV is empty or has no data rows.', 'warning'); return; }
   const dataRows = rows.slice(1);

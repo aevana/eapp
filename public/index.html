@@ -384,7 +384,7 @@
               <button class="btn btn-secondary backup-btn" onclick="triggerRestoreBackup()">
                 📂 Restore from Backup
               </button>
-              <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)" />
+              <input type="file" id="restore-file-input" accept="*/*" style="display:none" onchange="handleRestoreFile(event)" />
             </div>
             <p class="backup-hint">The backup file contains all your customers, bills, and monthly charges. Keep it safely on Google Drive or WhatsApp.</p>
           </div>
