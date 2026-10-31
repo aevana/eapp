@@ -1961,7 +1961,7 @@ async function doDelete(type, id) {
     if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); closeCustomerPage(); }
     if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); refreshCustomerPage(); }
     if (type === 'monthly-charge') { loadBalanceSheet(); }
-    if (type === 'payment')        { refreshAfterPaymentChange(); refreshCustomerPaymentsModal(); }
+    if (type === 'payment')        { refreshAfterPaymentChange(); refreshCustomerPaymentsModal(); if (document.getElementById('modal-all-payments').classList.contains('open')) openAllPayments(); }
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -2622,5 +2622,90 @@ function recordPaymentForCustomer() {
 
 function editPaymentFromCustomer(paymentId) {
   closeModal('modal-customer-payments');
+  openPaymentModal(paymentId);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ALL PAYMENTS (filterable)
+// ══════════════════════════════════════════════════════════════
+
+let allPaymentsList = []; // every payment, loaded when the modal opens
+
+async function openAllPayments() {
+  try {
+    const [customers, payments] = await Promise.all([
+      apiFetch('/api/customers'),
+      apiFetch('/api/payments'),
+    ]);
+    allCustomers = customers;
+    allPaymentsList = payments;
+    fillCustomerSelect(document.getElementById('ap-customer'), customers, 'All customers');
+    openModal('modal-all-payments');
+    renderAllPayments();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function resetAllPaymentsFilters() {
+  ['ap-from', 'ap-to'].forEach(id => { document.getElementById(id).value = ''; });
+  ['ap-customer', 'ap-mode', 'ap-status'].forEach(id => { document.getElementById(id).value = ''; });
+  renderAllPayments();
+}
+
+function filteredAllPayments() {
+  const from     = document.getElementById('ap-from').value;
+  const to       = document.getElementById('ap-to').value;
+  const customer = document.getElementById('ap-customer').value;
+  const mode     = document.getElementById('ap-mode').value;
+  const status   = document.getElementById('ap-status').value;
+  return allPaymentsList.filter(p => {
+    if (from && p.date < from) return false;
+    if (to   && p.date > to)   return false;
+    if (customer && p.customerId !== customer) return false;
+    if (mode && p.mode !== mode) return false;
+    if (status === 'applied'   && !(p.credit <= 0.001 && p.allocated > 0)) return false;
+    if (status === 'credit'    && !(p.credit > 0.001)) return false;
+    if (status === 'unapplied' && p.allocated > 0) return false;
+    return true;
+  });
+}
+
+function renderAllPayments() {
+  const list = filteredAllPayments();
+  const money = n => `₹${round2Js(n).toLocaleString()}`;
+  const received = list.reduce((s, p) => s + p.amount, 0);
+  const applied  = list.reduce((s, p) => s + p.allocated, 0);
+  const credit   = list.reduce((s, p) => s + p.credit, 0);
+  document.getElementById('ap-summary').innerHTML = `
+    <div class="summary-card"><div class="sc-label">Payments</div><div class="sc-value">${list.length}</div></div>
+    <div class="summary-card sc-collected"><div class="sc-label">Received</div><div class="sc-value">${money(received)}</div></div>
+    <div class="summary-card"><div class="sc-label">Applied to bills</div><div class="sc-value">${money(applied)}</div></div>
+    <div class="summary-card sc-pending"><div class="sc-label">Credit</div><div class="sc-value">${money(credit)}</div></div>`;
+
+  const tb = document.getElementById('ap-tbody');
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty-row">No payments match these filters</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(p => {
+    const applied = p.allocations.length
+      ? p.allocations.map(a => `${esc(billPeriodLabel(a.billStartDate, a.billStopDate))}: ₹${a.amount.toLocaleString()}`).join('<br>')
+      : '<span class="pay-hint">Not applied (credit)</span>';
+    return `<tr>
+      <td>${fmtDate(p.date)}</td>
+      <td><strong>${esc(p.customerName)}</strong><br><span class="pay-hint">${esc(p.customerMobile || '')}</span></td>
+      <td>₹${p.amount.toLocaleString()}</td>
+      <td>${applied}</td>
+      <td>${p.credit > 0 ? `₹${p.credit.toLocaleString()}` : '—'}</td>
+      <td>${esc(p.mode || '')}${p.note ? `<br><span class="pay-hint">${esc(p.note)}</span>` : ''}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-icon btn-edit" title="Edit" onclick="editPaymentFromAll('${p.id}')">✏️</button>
+        <button class="btn btn-icon btn-del" title="Delete" onclick="confirmDelete('payment','${p.id}','₹${p.amount.toLocaleString()} payment')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function editPaymentFromAll(paymentId) {
+  closeModal('modal-all-payments');
   openPaymentModal(paymentId);
 }

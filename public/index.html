@@ -169,6 +169,7 @@
       <div class="section-header">
         <h2>Payments &amp; Receivables</h2>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="openAllPayments()">📋 All Payments</button>
           <button class="btn btn-primary" onclick="openPaymentModal()">+ Record Payment</button>
         </div>
       </div>
@@ -702,6 +703,45 @@
           <button type="submit" class="btn btn-primary">Update Customer</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- All payments, with filters -->
+  <div id="modal-all-payments" class="modal-overlay" onclick="closeModalOutside(event,'modal-all-payments')">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>All Payments</h3>
+        <button class="modal-close" onclick="closeModal('modal-all-payments')">✕</button>
+      </div>
+      <div class="filter-row" style="flex-wrap:wrap">
+        <input type="date" id="ap-from" title="From date" onchange="renderAllPayments()" />
+        <input type="date" id="ap-to" title="To date" onchange="renderAllPayments()" />
+        <select id="ap-customer" onchange="renderAllPayments()">
+          <option value="">All customers</option>
+        </select>
+        <select id="ap-mode" onchange="renderAllPayments()">
+          <option value="">All modes</option>
+          <option>Cash</option><option>UPI</option><option>Bank transfer</option><option>Cheque</option>
+          <option>Other</option><option>Migrated</option><option>Imported</option>
+        </select>
+        <select id="ap-status" onchange="renderAllPayments()">
+          <option value="">Any allocation</option>
+          <option value="applied">Fully applied (no credit)</option>
+          <option value="credit">Has credit left</option>
+          <option value="unapplied">Not applied to any bill</option>
+        </select>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetAllPaymentsFilters()">Reset</button>
+      </div>
+      <div class="summary-cards" id="ap-summary" style="margin:1rem 0"></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Customer</th><th>Amount (₹)</th><th>Applied To</th><th>Credit (₹)</th><th>Mode / Note</th><th>Actions</th></tr></thead>
+          <tbody id="ap-tbody"><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-all-payments')">Close</button>
+      </div>
     </div>
   </div>
 
