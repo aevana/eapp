@@ -2040,6 +2040,19 @@ function readFileAsText(file) {
   });
 }
 
+// Accepts plain JSON, or the same JSON wrapped as base64 text (some file
+// handlers re-save the backup that way).
+function parseBackupText(text) {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (plainErr) {
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(trimmed)) throw plainErr;
+    const decoded = decodeURIComponent(escape(atob(trimmed.replace(/\s+/g, ''))));
+    return JSON.parse(decoded); // throws if this is not JSON either
+  }
+}
+
 async function handleRestoreFile(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -2058,9 +2071,11 @@ async function handleRestoreFile(event) {
 
   let data;
   try {
-    data = JSON.parse(text);
+    data = parseBackupText(text);
   } catch (e) {
-    showToast(`This is not a backup file (${file.name || 'selected file'} is not valid JSON). Pick the ebt-backup-….json file.`, 'error');
+    // Show size and the first characters only (no customer data) to help diagnose.
+    const head = text.slice(0, 12).replace(/[^\x20-\x7E]/g, '?');
+    showToast(`Not a valid backup: ${file.name || 'file'} (${text.length} characters, starts with "${head}"). Export a new backup and try again.`, 'error');
     return;
   }
   if (!data || !Array.isArray(data.customers) || !Array.isArray(data.bills)) {
