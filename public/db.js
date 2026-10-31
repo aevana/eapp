@@ -6,6 +6,7 @@ const DB = (() => {
     customers: 'ebt_customers',
     bills:     'ebt_bills',
     charges:   'ebt_charges',
+    payments:  'ebt_payments',
   };
 
   // ── Storage helpers ────────────────────────────────────────────
@@ -37,21 +38,57 @@ const DB = (() => {
     return read(KEYS.customers).map(normalizeCustomer);
   }
 
-  function enrichBill(bill, customers) {
+  // ── Payments ledger helpers ────────────────────────────────────
+  // A bill's paid amount is derived from payment allocations; it is never
+  // stored on the bill itself.
+  const round2   = n => Math.round((parseFloat(n) || 0) * 100) / 100;
+  const dateOnly = d => String(d || '').slice(0, 10);
+
+  function readPayments() { return read(KEYS.payments); }
+
+  // Paid amount and last payment date per bill. excludeId ignores one payment,
+  // which is used when validating an edit of that payment.
+  function paymentIndex(excludeId) {
+    const paid = {}, last = {};
+    readPayments().forEach(p => {
+      if (p.id === excludeId) return;
+      (p.allocations || []).forEach(a => {
+        paid[a.billId] = round2((paid[a.billId] || 0) + a.amount);
+        if (!last[a.billId] || p.date > last[a.billId]) last[a.billId] = p.date;
+      });
+    });
+    return { paid, last };
+  }
+
+  // Derived payment fields for one bill. `total` is the charge for the period
+  // being shown (the whole bill, or only the days inside a selected month).
+  function paymentFields(bill, idx, total) {
+    const paid    = idx.paid[bill.id] || 0;
+    const due     = round2(total + (bill.arrears || 0));
+    const pending = Math.max(0, round2(due - paid));
+    const paymentStatus = due <= 0 ? 'no-charge' : pending === 0 ? 'settled' : paid > 0 ? 'partial' : 'unpaid';
+    return {
+      collectedAmount: paid,
+      collectedDate:   idx.last[bill.id] || null,
+      pendingAmount:   pending,
+      paymentStatus,
+    };
+  }
+
+  function enrichBill(bill, customers, idx = paymentIndex()) {
     const customer  = customers.find(c => c.id === bill.customerId);
     const toMidnight = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
     const startDate = toMidnight(bill.startDate);
     const stopDate  = bill.stopDate ? toMidnight(bill.stopDate) : toMidnight(new Date());
     const days      = Math.max(1, Math.round((stopDate - startDate) / 86400000) + 1);
     const total     = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
-    const pending   = Math.max(0, total + (bill.arrears || 0) - (bill.collectedAmount || 0));
     return {
       ...bill,
       customerName:   customer ? customer.name   : 'Unknown',
       customerMobile: customer ? customer.mobile : '',
       numberOfDays:   days,
       total,
-      pendingAmount:  pending,
+      ...paymentFields(bill, idx, total),
     };
   }
 
@@ -64,7 +101,7 @@ const DB = (() => {
   }
 
   // Clips bill active days to the selected month only.
-  function enrichBillForMonth(bill, customers, month, year) {
+  function enrichBillForMonth(bill, customers, month, year, idx = paymentIndex()) {
     const customer = customers.find(c => c.id === bill.customerId);
     const toDate = d => { const dt = new Date(d); return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
     const mStart     = new Date(year, month - 1, 1);
@@ -77,16 +114,14 @@ const DB = (() => {
     const days = clippedStop >= clippedStart
       ? Math.min(Math.round((clippedStop - clippedStart) / 86400000) + 1, daysInMonth)
       : 0;
-    const total   = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
-    const arrears = bill.arrears || 0;
-    const pending = Math.max(0, total + arrears - (bill.collectedAmount || 0));
+    const total = days * (bill.quantity || 1) * (bill.perDayCharge || 0);
     return {
       ...bill,
       customerName:   customer ? customer.name   : 'Unknown',
       customerMobile: customer ? customer.mobile : '',
       numberOfDays:   days,
       total,
-      pendingAmount:  pending,
+      ...paymentFields(bill, idx, total),
     };
   }
 
@@ -125,6 +160,7 @@ const DB = (() => {
     let bills = read(KEYS.bills);
     bills = bills.filter(b => b.customerId !== id);
     write(KEYS.bills, bills);
+    write(KEYS.payments, readPayments().filter(p => p.customerId !== id));
     return { success: true };
   }
 
@@ -134,7 +170,8 @@ const DB = (() => {
 
   function getBills(status, customerId) {
     const customers = readCustomers();
-    let bills = read(KEYS.bills).map(b => enrichBill(b, customers));
+    const idx = paymentIndex();
+    let bills = read(KEYS.bills).map(b => enrichBill(b, customers, idx));
     if (status)     bills = bills.filter(b => b.status === status);
     if (customerId) bills = bills.filter(b => b.customerId === customerId);
     return bills;
@@ -152,7 +189,6 @@ const DB = (() => {
       perDayCharge: perDayCharge || 200,
       arrears: parseFloat(arrears) || 0,
       comments: comments || '',
-      collectedAmount: 0,
       status: 'active',
       createdAt: new Date().toISOString(),
     };
@@ -165,7 +201,11 @@ const DB = (() => {
     const bills = read(KEYS.bills);
     const idx = bills.findIndex(b => b.id === id);
     if (idx === -1) throw new Error('Bill not found');
-    const updated = { ...bills[idx], ...data, id };
+    // Paid amounts come from the payments ledger, never from the bill form.
+    const { collectedAmount, collectedDate, ...editable } = data;
+    const updated = { ...bills[idx], ...editable, id };
+    delete updated.collectedAmount;
+    delete updated.collectedDate;
     if (updated.stopDate) updated.status = 'stopped';
     bills[idx] = updated;
     write(KEYS.bills, bills);
@@ -175,6 +215,11 @@ const DB = (() => {
   function deleteBill(id) {
     let bills = read(KEYS.bills);
     if (!bills.find(b => b.id === id)) throw new Error('Bill not found');
+    // Refuse while money is allocated to it, so no received amount silently
+    // becomes credit. The user reallocates or removes those payments first.
+    if (readPayments().some(p => (p.allocations || []).some(a => a.billId === id))) {
+      throw new Error('This bill has payments recorded. Reallocate or delete those payments first.');
+    }
     bills = bills.filter(b => b.id !== id);
     write(KEYS.bills, bills);
     return { success: true };
@@ -187,9 +232,10 @@ const DB = (() => {
   function getTrackerByCustomer() {
     const customers = readCustomers();
     const bills = read(KEYS.bills);
+    const idx = paymentIndex();
     return customers.map(c => ({
       ...c,
-      bills: bills.filter(b => b.customerId === c.id).map(b => enrichBill(b, customers)),
+      bills: bills.filter(b => b.customerId === c.id).map(b => enrichBill(b, customers, idx)),
     }));
   }
 
@@ -197,9 +243,10 @@ const DB = (() => {
     const m = parseInt(month), y = parseInt(year);
     if (!m || !y) throw new Error('month and year required');
     const customers = readCustomers();
+    const idx = paymentIndex();
     const bills = read(KEYS.bills)
       .filter(b => billOverlapsMonth(b, m, y))
-      .map(b => enrichBillForMonth(b, customers, m, y));
+      .map(b => enrichBillForMonth(b, customers, m, y, idx));
     const totalBills     = bills.length;
     const totalCharged   = bills.reduce((s, b) => s + (b.total || 0), 0);
     const totalCollected = bills.reduce((s, b) => s + (b.collectedAmount || 0), 0);
@@ -267,9 +314,10 @@ const DB = (() => {
     const m = parseInt(month), y = parseInt(year);
     if (!m || !y) throw new Error('month and year required');
     const customers = readCustomers();
+    const idx = paymentIndex();
     const bills = read(KEYS.bills)
       .filter(b => billOverlapsMonth(b, m, y))
-      .map(b => enrichBillForMonth(b, customers, m, y));
+      .map(b => enrichBillForMonth(b, customers, m, y, idx));
     const charges = read(KEYS.charges);
     const monthlyCharge = charges.find(c => c.month === m && c.year === y) || null;
 
@@ -344,9 +392,246 @@ const DB = (() => {
 
       case 'balance-sheet':
         return getBalanceSheet(params.month, params.year, params.unitsPerDay);
+
+      case 'payments':
+        if (id === 'auto-allocate') return autoAllocate(params.customerId, params.amount, params.excludeId);
+        if (method === 'GET')    return getPayments(params.customerId);
+        if (method === 'POST')   return addPayment(body);
+        if (method === 'PUT')    return updatePayment(id, body);
+        if (method === 'DELETE') return deletePayment(id);
+        break;
+
+      case 'receivables':
+        return getReceivables(params.month, params.year);
     }
     throw new Error(`Unknown route: ${method} ${url}`);
   }
 
-  return { route };
+  // ══════════════════════════════════════════════════════════════
+  //  PAYMENTS
+  //  Each payment: { id, customerId, date, amount, mode, note,
+  //                  allocations: [{ billId, amount }] }
+  //  Allocations are optional; any part of `amount` not allocated is
+  //  customer credit.
+  // ══════════════════════════════════════════════════════════════
+
+  function enrichPayment(p, customers, bills) {
+    const customer  = customers.find(c => c.id === p.customerId);
+    const allocated = round2((p.allocations || []).reduce((s, a) => s + a.amount, 0));
+    return {
+      ...p,
+      customerName:   customer ? customer.name   : 'Unknown',
+      customerMobile: customer ? customer.mobile : '',
+      allocated,
+      credit: round2(p.amount - allocated),
+      allocations: (p.allocations || []).map(a => {
+        const b = bills.find(x => x.id === a.billId);
+        return { ...a, billStartDate: b ? b.startDate : null, billStopDate: b ? (b.stopDate || null) : null };
+      }),
+    };
+  }
+
+  function getPayments(customerId) {
+    const customers = readCustomers();
+    const bills = read(KEYS.bills);
+    let list = readPayments();
+    if (customerId) list = list.filter(p => p.customerId === customerId);
+    return list
+      .map(p => enrichPayment(p, customers, bills))
+      .sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  }
+
+  // Checks a payment before it is saved. excludeId is the payment being edited.
+  function validatePayment(data, excludeId) {
+    const customers = readCustomers();
+    const customer  = customers.find(c => c.id === data.customerId);
+    if (!customer) throw new Error('Customer not found');
+    const amount = round2(data.amount);
+    if (!(amount > 0)) throw new Error('Amount must be greater than 0');
+    const date = dateOnly(data.date);
+    if (!date) throw new Error('Payment date is required');
+
+    const allocations = (data.allocations || [])
+      .map(a => ({ billId: a.billId, amount: round2(a.amount) }))
+      .filter(a => a.amount > 0);
+    const allocSum = round2(allocations.reduce((s, a) => s + a.amount, 0));
+    if (allocSum > amount) throw new Error('Allocations add up to more than the payment amount');
+
+    const idx   = paymentIndex(excludeId);
+    const bills = read(KEYS.bills);
+    const seen  = new Set();
+    allocations.forEach(a => {
+      if (seen.has(a.billId)) throw new Error('The same bill is allocated twice');
+      seen.add(a.billId);
+      const bill = bills.find(b => b.id === a.billId);
+      if (!bill || bill.customerId !== customer.id) throw new Error('Allocation refers to a bill that is not this customer’s');
+      const pending = enrichBill(bill, customers, idx).pendingAmount;
+      if (a.amount > pending) throw new Error(`Allocation is more than the pending amount (₹${pending.toLocaleString()})`);
+    });
+
+    return {
+      customerId:  customer.id,
+      date,
+      amount,
+      mode:        data.mode || 'Cash',
+      note:        (data.note || '').trim(),
+      allocations,
+    };
+  }
+
+  function addPayment(body) {
+    const data = validatePayment(body);
+    const payment = { id: uuid(), ...data, createdAt: new Date().toISOString() };
+    const payments = readPayments();
+    payments.push(payment);
+    write(KEYS.payments, payments);
+    return enrichPayment(payment, readCustomers(), read(KEYS.bills));
+  }
+
+  function updatePayment(id, body) {
+    const payments = readPayments();
+    const idx = payments.findIndex(p => p.id === id);
+    if (idx === -1) throw new Error('Payment not found');
+    const data = validatePayment({ ...payments[idx], ...body }, id);
+    payments[idx] = { ...payments[idx], ...data, id, updatedAt: new Date().toISOString() };
+    write(KEYS.payments, payments);
+    return enrichPayment(payments[idx], readCustomers(), read(KEYS.bills));
+  }
+
+  function deletePayment(id) {
+    const payments = readPayments();
+    if (!payments.find(p => p.id === id)) throw new Error('Payment not found');
+    write(KEYS.payments, payments.filter(p => p.id !== id));
+    return { success: true };
+  }
+
+  // Suggests how to split an amount across a customer's unpaid bills,
+  // oldest bill first. Any leftover is returned as credit.
+  function autoAllocate(customerId, amount, excludeId) {
+    const customers = readCustomers();
+    const idx = paymentIndex(excludeId);
+    let remaining = round2(amount);
+    const bills = read(KEYS.bills)
+      .filter(b => b.customerId === customerId)
+      .sort((a, b) => dateOnly(a.startDate).localeCompare(dateOnly(b.startDate)) ||
+                      String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+    const allocations = [];
+    bills.forEach(b => {
+      if (remaining <= 0) return;
+      const pending = enrichBill(b, customers, idx).pendingAmount;
+      const take = round2(Math.min(pending, remaining));
+      if (take > 0) {
+        allocations.push({ billId: b.id, amount: take });
+        remaining = round2(remaining - take);
+      }
+    });
+    return { allocations, credit: Math.max(0, remaining) };
+  }
+
+  // Monthly receivables: billed vs collected in the month, what is still
+  // outstanding, how old it is, and who owes the most.
+  function getReceivables(month, year) {
+    const m = parseInt(month), y = parseInt(year);
+    if (!m || !y) throw new Error('month and year required');
+    const customers = readCustomers();
+    const idx = paymentIndex();
+    const billRows = read(KEYS.bills);
+    const payments = readPayments();
+
+    const monthBills = billRows
+      .filter(b => billOverlapsMonth(b, m, y))
+      .map(b => enrichBillForMonth(b, customers, m, y, idx));
+    const billedInMonth = round2(monthBills.reduce((s, b) => s + b.total, 0));
+
+    const prefix = `${y}-${String(m).padStart(2, '0')}`;
+    const monthPayments = payments.filter(p => dateOnly(p.date).startsWith(prefix));
+    const collectedInMonth  = round2(monthPayments.reduce((s, p) => s + p.amount, 0));
+    const allocatedInMonth  = round2(monthPayments.reduce((s, p) =>
+      s + (p.allocations || []).reduce((t, a) => t + a.amount, 0), 0));
+
+    const allBills = billRows.map(b => enrichBill(b, customers, idx));
+    const open = allBills.filter(b => b.pendingAmount > 0);
+    const outstandingNow = round2(open.reduce((s, b) => s + b.pendingAmount, 0));
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const bands = [
+      { label: '0–30 days',  min: 0,  max: 30 },
+      { label: '31–60 days', min: 31, max: 60 },
+      { label: '61–90 days', min: 61, max: 90 },
+      { label: 'Over 90 days', min: 91, max: Infinity },
+    ];
+    const aging = bands.map(band => {
+      const items = open.filter(b => {
+        const start = new Date(b.startDate); start.setHours(0, 0, 0, 0);
+        const age = Math.floor((today - start) / 86400000);
+        return age >= band.min && age <= band.max;
+      });
+      return { label: band.label, bills: items.length, amount: round2(items.reduce((s, b) => s + b.pendingAmount, 0)) };
+    });
+
+    const byCustomer = customers
+      .map(c => {
+        const mine = open.filter(b => b.customerId === c.id);
+        return {
+          customerId:   c.id,
+          customerName: c.name,
+          mobile:       c.mobile,
+          openBills:    mine.length,
+          pending:      round2(mine.reduce((s, b) => s + b.pendingAmount, 0)),
+        };
+      })
+      .filter(r => r.pending > 0)
+      .sort((a, b) => b.pending - a.pending);
+
+    const totalCredit = round2(payments.reduce((s, p) =>
+      s + p.amount - (p.allocations || []).reduce((t, a) => t + a.amount, 0), 0));
+
+    return {
+      month: m, year: y,
+      summary: {
+        billedInMonth,
+        collectedInMonth,
+        allocatedInMonth,
+        unallocatedInMonth: round2(collectedInMonth - allocatedInMonth),
+        outstandingNow,
+        customerCredit:     totalCredit,
+      },
+      aging,
+      customers: byCustomer,
+    };
+  }
+
+  // One-time (and repeatable) conversion of the old per-bill `collectedAmount`
+  // and `collectedDate` fields into a payment on that bill. Runs at load; once
+  // the fields are removed it does nothing.
+  function migrateLegacyCollections() {
+    const bills = read(KEYS.bills);
+    let payments = null, billsChanged = false;
+    bills.forEach(b => {
+      if (!('collectedAmount' in b) && !('collectedDate' in b)) return;
+      const amt = round2(b.collectedAmount);
+      if (amt > 0) {
+        payments = payments || readPayments();
+        payments.push({
+          id:          uuid(),
+          customerId:  b.customerId,
+          date:        dateOnly(b.collectedDate || b.startDate),
+          amount:      amt,
+          mode:        'Migrated',
+          note:        'Migrated from bill collected amount',
+          allocations: [{ billId: b.id, amount: amt }],
+          createdAt:   new Date().toISOString(),
+        });
+      }
+      delete b.collectedAmount;
+      delete b.collectedDate;
+      billsChanged = true;
+    });
+    if (payments) write(KEYS.payments, payments);
+    if (billsChanged) write(KEYS.bills, bills);
+  }
+
+  try { migrateLegacyCollections(); } catch (e) { console.error('Payment migration failed', e); }
+
+  return { route, migrate: migrateLegacyCollections };
 })();

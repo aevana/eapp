@@ -1478,3 +1478,12 @@ body {
   font-size: .78rem; color: #b91c1c;
   margin: .4rem 0 0; min-height: 1rem;
 }
+
+/* ── Payments & receivables ── */
+.pay-subhead { margin: 1.25rem 0 .5rem; }
+.pay-hint    { font-size: .8rem; color: var(--gray-500); font-weight: 400; }
+.pay-alloc-input { width: 7rem; }
+.pay-alloc-input.pay-over { border-color: var(--danger); }
+
+.remind-options { display: flex; flex-direction: column; gap: .35rem; font-size: .9rem; }
+.remind-opt { display: flex; align-items: center; gap: .5rem; cursor: pointer; }

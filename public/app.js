@@ -142,6 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'settings') loadSettings();
       if (btn.dataset.tab === 'home')     loadHome();
+      if (btn.dataset.tab === 'payments') loadPayments();
     });
   });
 
@@ -445,6 +446,7 @@ function renderCustomers(list) {
         </div>
         <div class="cust-card-actions" onclick="event.stopPropagation()">
           ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+          <button class="btn btn-icon btn-pay" title="All payments" onclick="openCustomerPayments('${c.id}')">💰</button>
           <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
           <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
           <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
@@ -506,6 +508,7 @@ function renderCustomersByLine(list) {
           </div>
           <div class="cust-card-actions" onclick="event.stopPropagation()">
             ${hasActive ? `<button class="btn btn-whatsapp btn-icon" title="WhatsApp Reminder" onclick="sendWhatsAppReminder('${c.id}')">📱</button>` : ''}
+            <button class="btn btn-icon btn-pay" title="All payments" onclick="openCustomerPayments('${c.id}')">💰</button>
             <a class="btn btn-icon btn-call" title="Call" href="tel:${esc(c.mobile)}">📞</a>
             <button class="btn btn-icon btn-edit" title="Edit" onclick="openEditCustomer('${c.id}')">✏️</button>
             <button class="btn btn-icon btn-del"  title="Delete" onclick="confirmDelete('customer','${c.id}','${esc(c.name)}')">🗑</button>
@@ -845,7 +848,7 @@ function openUpdateBill(id) {
   document.getElementById('ub-qty').value        = b.quantity;
   document.getElementById('ub-perday').value     = b.perDayCharge;
   document.getElementById('ub-collected').value      = b.collectedAmount || 0;
-  document.getElementById('ub-collecteddate').value  = b.collectedDate || toDateStr(new Date());
+  document.getElementById('ub-collecteddate').value  = b.collectedDate || '';
   document.getElementById('ub-arrears').value        = b.arrears || 0;
   document.getElementById('ub-comments').value       = b.comments || '';
   openModal('modal-update-bill');
@@ -884,7 +887,6 @@ async function submitUpdateBill(e) {
     { id: 'ub-stopdate',  label: 'Stop Date',       isDate: true, afterField: 'ub-startdate', afterFieldLabel: 'Start Date' },
     { id: 'ub-qty',       label: 'Quantity',        required: true, min: 1 },
     { id: 'ub-perday',    label: 'Per Day Charge',  required: true, min: 1 },
-    { id: 'ub-collected', label: 'Collected Amount',min: 0 },
     { id: 'ub-arrears',   label: 'Arrears',         min: 0 },
   ])) return;
   const id   = document.getElementById('ub-id').value;
@@ -893,8 +895,6 @@ async function submitUpdateBill(e) {
     stopDate:        document.getElementById('ub-stopdate').value || null,
     quantity:        parseInt(document.getElementById('ub-qty').value),
     perDayCharge:    parseInt(document.getElementById('ub-perday').value),
-    collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
-    collectedDate:   document.getElementById('ub-collecteddate').value || null,
     arrears:         parseFloat(document.getElementById('ub-arrears').value) || 0,
     comments:        document.getElementById('ub-comments').value.trim(),
   };
@@ -1953,7 +1953,7 @@ function confirmDelete(type, id, label) {
 }
 
 async function doDelete(type, id) {
-  const urls = { customer: `/api/customers/${id}`, bill: `/api/bills/${id}`, 'monthly-charge': `/api/monthly-charges/${id}` };
+  const urls = { customer: `/api/customers/${id}`, bill: `/api/bills/${id}`, 'monthly-charge': `/api/monthly-charges/${id}`, payment: `/api/payments/${id}` };
   try {
     await apiFetch(urls[type], { method: 'DELETE' });
     closeModal('modal-confirm-delete');
@@ -1961,6 +1961,7 @@ async function doDelete(type, id) {
     if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); closeCustomerPage(); }
     if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); refreshCustomerPage(); }
     if (type === 'monthly-charge') { loadBalanceSheet(); }
+    if (type === 'payment')        { refreshAfterPaymentChange(); refreshCustomerPaymentsModal(); if (document.getElementById('modal-all-payments').classList.contains('open')) openAllPayments(); }
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -1976,8 +1977,9 @@ async function backupAllData() {
     customers:  JSON.parse(localStorage.getItem('ebt_customers') || '[]'),
     bills:      JSON.parse(localStorage.getItem('ebt_bills')     || '[]'),
     charges:    JSON.parse(localStorage.getItem('ebt_charges')   || '[]'),
+    payments:   JSON.parse(localStorage.getItem('ebt_payments')  || '[]'),
   };
-  const total = backup.customers.length + backup.bills.length + backup.charges.length;
+  const total = backup.customers.length + backup.bills.length + backup.charges.length + backup.payments.length;
   if (!total) { showToast('No data to backup.', 'warning'); return; }
   const date     = new Date().toISOString().split('T')[0];
   const filename = `ebt-backup-${date}.json`;
@@ -2018,7 +2020,7 @@ async function backupAllData() {
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast(`Backup saved — ${backup.customers.length} customers, ${backup.bills.length} bills, ${backup.charges.length} charges.`, 'success');
+  showToast(`Backup saved — ${backup.customers.length} customers, ${backup.bills.length} bills, ${backup.payments.length} payments, ${backup.charges.length} charges.`, 'success');
 }
 
 function triggerRestoreBackup() {
@@ -2026,23 +2028,56 @@ function triggerRestoreBackup() {
   if (inp) { inp.value = ''; inp.click(); }
 }
 
+// Reads a picked file as text. Older Android WebViews lack Blob.text(),
+// so fall back to FileReader.
+function readFileAsText(file) {
+  if (typeof file.text === 'function') return file.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('unknown read error'));
+    reader.readAsText(file);
+  });
+}
+
 async function handleRestoreFile(event) {
   const file = event.target.files[0];
   if (!file) return;
+
+  let text;
   try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if (!Array.isArray(data.customers) || !Array.isArray(data.bills)) {
-      showToast('Invalid backup file — missing customers or bills.', 'error'); return;
-    }
+    text = await readFileAsText(file);
+  } catch (e) {
+    showToast(`Could not read the file: ${e.message || e.name || 'unknown error'}. Try copying it to Downloads and picking it again.`, 'error');
+    return;
+  }
+  if (!text || !text.trim()) {
+    showToast('The selected file is empty.', 'error');
+    return;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    showToast(`This is not a backup file (${file.name || 'selected file'} is not valid JSON). Pick the ebt-backup-….json file.`, 'error');
+    return;
+  }
+  if (!data || !Array.isArray(data.customers) || !Array.isArray(data.bills)) {
+    showToast('Invalid backup file — missing customers or bills.', 'error');
+    return;
+  }
+
+  try {
     window._pendingRestore = data;
-    const d = document;
-    d.getElementById('restore-count').textContent =
-      `${data.customers.length} customers · ${data.bills.length} bills · ${(data.charges || []).length} monthly charges`;
-    d.getElementById('restore-exported-at').textContent =
+    document.getElementById('restore-count').textContent =
+      `${data.customers.length} customers · ${data.bills.length} bills · ${(data.payments || []).length} payments · ${(data.charges || []).length} monthly charges`;
+    document.getElementById('restore-exported-at').textContent =
       data.exportedAt ? new Date(data.exportedAt).toLocaleString('en-IN') : 'Unknown';
     openModal('modal-restore-confirm');
-  } catch (e) { showToast('Could not read backup file.', 'error'); }
+  } catch (e) {
+    showToast(`Could not show backup details: ${e.message}`, 'error');
+  }
 }
 
 function doRestoreBackup() {
@@ -2052,9 +2087,11 @@ function doRestoreBackup() {
     localStorage.setItem('ebt_customers', JSON.stringify(data.customers || []));
     localStorage.setItem('ebt_bills',     JSON.stringify(data.bills     || []));
     localStorage.setItem('ebt_charges',   JSON.stringify(data.charges   || []));
+    localStorage.setItem('ebt_payments',  JSON.stringify(data.payments  || []));
+    DB.migrate(); // converts paid amounts from older backups into payments
     window._pendingRestore = null;
     closeModal('modal-restore-confirm');
-    showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.charges||[]).length} charges.`, 'success');
+    showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.payments||[]).length} payments, ${(data.charges||[]).length} charges.`, 'success');
     loadCustomers();
     loadBills();
     loadTrackerByCustomer();
@@ -2136,6 +2173,50 @@ function exportCustomersCSV() {
   downloadCSV('customers.csv', buildCSV(headers, rows));
 }
 
+// ── Payments exports ─────────────────────────────────────────
+function paymentRowsForCSV(list) {
+  const headers = ['Date', 'Customer', 'Mobile', 'Amount', 'Applied To', 'Applied Amount', 'Credit', 'Mode', 'Note', 'Payment ID'];
+  const rows = list.map(p => [
+    p.date, p.customerName || '', p.customerMobile || '', p.amount,
+    p.allocations.map(a => `${billPeriodLabel(a.billStartDate, a.billStopDate)}: ${a.amount}`).join('; '),
+    p.allocated, p.credit, p.mode || '', p.note || '', p.id,
+  ]);
+  return { headers, rows };
+}
+
+function stampDate() { return toDateStr(new Date()); }
+
+function exportAllPaymentsCSV() {
+  const list = filteredAllPayments();
+  if (!list.length) { showToast('No payments to export.', 'warning'); return; }
+  const { headers, rows } = paymentRowsForCSV(list);
+  downloadCSV(`payments-${stampDate()}.csv`, buildCSV(headers, rows));
+}
+
+function exportCustomerPaymentsCSV() {
+  if (!customerPaymentsCache.length) { showToast('No payments to export.', 'warning'); return; }
+  const { headers, rows } = paymentRowsForCSV(customerPaymentsCache);
+  const name = (customerPaymentsCache[0].customerName || 'customer').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  downloadCSV(`payments-${name}-${stampDate()}.csv`, buildCSV(headers, rows));
+}
+
+// Receivables for the selected month: summary, aging, and who owes what.
+function exportReceivablesCSV() {
+  if (!lastReceivables) { showToast('Open the Payments tab first.', 'warning'); return; }
+  const r = lastReceivables;
+  const headers = ['Section', 'Name', 'Mobile', 'Open Bills', 'Amount (₹)'];
+  const rows = [
+    ['Summary', `Billed in ${r.month}/${r.year}`, '', '', r.summary.billedInMonth],
+    ['Summary', 'Collected in month', '', '', r.summary.collectedInMonth],
+    ['Summary', 'Applied to bills in month', '', '', r.summary.allocatedInMonth],
+    ['Summary', 'Outstanding now', '', '', r.summary.outstandingNow],
+    ['Summary', 'Customer credit', '', '', r.summary.customerCredit],
+    ...r.aging.map(a => ['Aging', a.label, '', a.bills, a.amount]),
+    ...r.customers.map(c => ['Pending by customer', c.customerName, c.mobile || '', c.openBills, c.pending]),
+  ];
+  downloadCSV(`receivables-${r.year}-${String(r.month).padStart(2, '0')}.csv`, buildCSV(headers, rows));
+}
+
 function exportBillsCSV() {
   if (!allBills.length) { showToast('No bills to export.', 'warning'); return; }
   const headers = ['#', 'Customer', 'Mobile', 'Start Date', 'Stop Date', 'Days', 'Qty', 'Per Day', 'Arrears', 'Total', 'Collected', 'Pending', 'Status'];
@@ -2171,7 +2252,7 @@ function importCSVFile(type) {
 async function handleCSVImport(event, type) {
   const file = event.target.files[0];
   if (!file) return;
-  const text = await file.text();
+  const text = await readFileAsText(file);
   const rows = parseCSVText(text);
   if (rows.length < 2) { showToast('CSV is empty or has no data rows.', 'warning'); return; }
   const dataRows = rows.slice(1);
@@ -2223,12 +2304,20 @@ async function handleCSVImport(event, type) {
       const status    = iStatus    !== -1 ? (row[iStatus]?.trim()      || 'active') : 'active';
       try {
         const bill = await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify({ customerId: customer.id, startDate, quantity: qty, perDayCharge: perDay, arrears }) });
-        if (stopDate || status === 'stopped' || collected > 0) {
+        if (stopDate || status === 'stopped') {
           const upd = {};
           if (stopDate) upd.stopDate = stopDate;
-          else if (status === 'stopped') upd.stopDate = toDateStr(new Date());
-          if (collected > 0) upd.collectedAmount = collected;
+          else upd.stopDate = toDateStr(new Date());
           await apiFetch(`/api/bills/${bill.id}`, { method: 'PUT', body: JSON.stringify(upd) });
+        }
+        if (collected > 0) {
+          // Paid amounts are recorded as payments, capped at what the bill owes.
+          const applied = Math.min(collected, bill.pendingAmount || 0);
+          await apiFetch('/api/payments', { method: 'POST', body: JSON.stringify({
+            customerId: customer.id, date: stopDate || toDateStr(new Date()), amount: collected,
+            mode: 'Imported', note: 'Imported from CSV',
+            allocations: applied > 0 ? [{ billId: bill.id, amount: applied }] : [],
+          }) });
         }
         imported++;
       } catch { skipped++; }
@@ -2305,4 +2394,596 @@ function showToast(msg, type = '') {
   t.className   = `toast show${type ? ' ' + type : ''}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PAYMENTS & RECEIVABLES
+// ══════════════════════════════════════════════════════════════
+
+let editingAlloc = {}; // billId -> amount the payment being edited already holds
+
+function paymentMonthParams() {
+  const now = new Date();
+  const m = document.getElementById('pay-month');
+  const y = document.getElementById('pay-year');
+  if (!m.dataset.ready) { // first visit: open on the current month
+    m.value = now.getMonth() + 1;
+    y.value = now.getFullYear();
+    m.dataset.ready = '1';
+  }
+  return { month: parseInt(m.value), year: parseInt(y.value) };
+}
+
+function billPeriodLabel(start, stop) {
+  if (!start) return 'Deleted bill';
+  return `${fmtDate(start)} → ${stop ? fmtDate(stop) : 'Running'}`;
+}
+
+let lastReceivables = null; // last receivables payload, for CSV export
+
+async function loadPayments() {
+  const { month, year } = paymentMonthParams();
+  const customerId = document.getElementById('pay-customer-filter').value;
+  try {
+    const [receivables, payments, customers] = await Promise.all([
+      apiFetch(`/api/receivables?month=${month}&year=${year}`),
+      apiFetch(`/api/payments${customerId ? `?customerId=${customerId}` : ''}`),
+      apiFetch('/api/customers'),
+    ]);
+    allCustomers = customers;
+    fillCustomerSelect(document.getElementById('pay-customer-filter'), customers, 'All customers');
+    lastReceivables = receivables;
+    renderReceivables(receivables);
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    renderPaymentsTable(payments.filter(p => p.date.startsWith(prefix)));
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function fillCustomerSelect(sel, customers, firstLabel) {
+  const keep = sel.value;
+  sel.innerHTML = `<option value="">${firstLabel}</option>` +
+    customers.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.mobile)})</option>`).join('');
+  sel.value = keep;
+}
+
+function renderReceivables(rec) {
+  const s = rec.summary;
+  const money = n => `₹${(n || 0).toLocaleString()}`;
+  document.getElementById('pay-summary').innerHTML = `
+    <div class="summary-card sc-total"><div class="sc-label">Billed this month</div><div class="sc-value">${money(s.billedInMonth)}</div></div>
+    <div class="summary-card sc-collected"><div class="sc-label">Collected this month</div><div class="sc-value">${money(s.collectedInMonth)}</div></div>
+    <div class="summary-card sc-pending"><div class="sc-label">Outstanding now</div><div class="sc-value">${money(s.outstandingNow)}</div></div>
+    <div class="summary-card"><div class="sc-label">Customer credit</div><div class="sc-value">${money(s.customerCredit)}</div></div>`;
+
+  document.getElementById('pay-aging-body').innerHTML = rec.aging.map(a =>
+    `<tr><td>${a.label}</td><td>${a.bills}</td><td>${money(a.amount)}</td></tr>`).join('');
+
+  const tb = document.getElementById('pay-customers-body');
+  tb.innerHTML = rec.customers.length
+    ? rec.customers.map(c => `<tr>
+        <td><strong>${esc(c.customerName)}</strong></td><td>${esc(c.mobile || '')}</td><td>${c.openBills}</td><td>${money(c.pending)}</td>
+        <td><button class="btn btn-whatsapp btn-sm" onclick="openRemind('${c.customerId}')">📱 Remind</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="empty-row">No pending amounts 🎉</td></tr>';
+}
+
+function renderPaymentsTable(list) {
+  const tb = document.getElementById('payments-tbody');
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty-row">No payments recorded for this month</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(p => {
+    const applied = p.allocations.length
+      ? p.allocations.map(a => `${esc(billPeriodLabel(a.billStartDate, a.billStopDate))}: ₹${a.amount.toLocaleString()}`).join('<br>')
+      : '<span class="pay-hint">Not applied (credit)</span>';
+    return `<tr>
+      <td>${fmtDate(p.date)}</td>
+      <td><strong>${esc(p.customerName)}</strong><br><span class="pay-hint">${esc(p.customerMobile || '')}</span></td>
+      <td>₹${p.amount.toLocaleString()}</td>
+      <td>${applied}</td>
+      <td>${p.credit > 0 ? `₹${p.credit.toLocaleString()}` : '—'}</td>
+      <td>${esc(p.mode || '')}</td>
+      <td>${esc(p.note || '')}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-icon btn-edit" title="Edit" onclick="openPaymentModal('${p.id}')">✏️</button>
+        <button class="btn btn-icon btn-del" title="Delete" onclick="confirmDelete('payment','${p.id}','₹${p.amount.toLocaleString()} payment')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openPaymentModal(id = null, presetCustomerId = null) {
+  try {
+    const customers = await apiFetch('/api/customers');
+    allCustomers = customers;
+    document.getElementById('form-payment').reset();
+    document.getElementById('pay-id').value = id || '';
+    document.getElementById('pay-modal-title').textContent = id ? 'Edit Payment' : 'Record Payment';
+    document.getElementById('pay-submit-btn').disabled = false;
+    fillCustomerSelect(document.getElementById('pay-customer'), customers, '-- Select Customer --');
+    editingAlloc = {};
+    if (id) {
+      const p = (await apiFetch('/api/payments')).find(x => x.id === id);
+      if (!p) throw new Error('Payment not found');
+      p.allocations.forEach(a => { editingAlloc[a.billId] = a.amount; });
+      document.getElementById('pay-customer').value = p.customerId;
+      document.getElementById('pay-date').value     = p.date;
+      document.getElementById('pay-amount').value   = p.amount;
+      document.getElementById('pay-mode').value     = p.mode || 'Cash';
+      document.getElementById('pay-note').value     = p.note || '';
+    } else {
+      document.getElementById('pay-date').value = toDateStr(new Date());
+      if (presetCustomerId) document.getElementById('pay-customer').value = presetCustomerId;
+    }
+    await loadPaymentBills();
+    openModal('modal-payment');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function onPaymentCustomerChange() {
+  editingAlloc = {}; // a different customer starts with nothing applied
+  loadPaymentBills();
+}
+
+async function loadPaymentBills() {
+  const customerId = document.getElementById('pay-customer').value;
+  const tb = document.getElementById('pay-alloc-body');
+  if (!customerId) {
+    tb.innerHTML = '<tr><td colspan="3" class="empty-row">Select a customer</td></tr>';
+    updateAllocSummary();
+    return;
+  }
+  try {
+    const bills = (await apiFetch(`/api/bills?customerId=${customerId}`))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    if (!bills.length) {
+      tb.innerHTML = '<tr><td colspan="3" class="empty-row">This customer has no bills</td></tr>';
+    } else {
+      tb.innerHTML = bills.map(b => {
+        // In edit mode, the amount this payment already holds is available again.
+        const own = editingAlloc[b.id] || 0;
+        const available = Math.max(0, round2Js(b.pendingAmount + own));
+        return `<tr>
+          <td>${esc(billPeriodLabel(b.startDate, b.stopDate))}<br>
+              <span class="pay-hint">${b.numberOfDays} days · ₹${b.perDayCharge}/day × ${b.quantity} · ${b.paymentStatus}</span></td>
+          <td>₹${available.toLocaleString()}</td>
+          <td><input type="number" min="0" step="1" class="pay-alloc-input" data-bill-id="${b.id}" data-max="${available}"
+                     value="${own || ''}" oninput="updateAllocSummary()" /></td>
+        </tr>`;
+      }).join('');
+    }
+  } catch (e) { showToast(e.message, 'error'); }
+  updateAllocSummary();
+}
+
+function round2Js(n) { return Math.round((n || 0) * 100) / 100; }
+
+async function autoAllocatePayment() {
+  const customerId = document.getElementById('pay-customer').value;
+  const amount     = parseFloat(document.getElementById('pay-amount').value) || 0;
+  if (!customerId || amount <= 0) { showToast('Select a customer and enter the amount first.', 'warning'); return; }
+  const id = document.getElementById('pay-id').value;
+  try {
+    const res = await apiFetch(`/api/payments/auto-allocate?customerId=${customerId}&amount=${amount}${id ? `&excludeId=${id}` : ''}`);
+    document.querySelectorAll('.pay-alloc-input').forEach(i => { i.value = ''; });
+    res.allocations.forEach(a => {
+      const el = document.querySelector(`.pay-alloc-input[data-bill-id="${a.billId}"]`);
+      if (el) el.value = a.amount;
+    });
+    updateAllocSummary();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function clearAllocations() {
+  document.querySelectorAll('.pay-alloc-input').forEach(i => { i.value = ''; });
+  updateAllocSummary();
+}
+
+function updateAllocSummary() {
+  const amount = parseFloat(document.getElementById('pay-amount').value) || 0;
+  let applied = 0, overBill = false;
+  document.querySelectorAll('.pay-alloc-input').forEach(i => {
+    const v = parseFloat(i.value) || 0;
+    const max = parseFloat(i.dataset.max) || 0;
+    applied += v;
+    const over = v > max + 0.001;
+    i.classList.toggle('pay-over', over);
+    if (over) overBill = true;
+  });
+  const credit = round2Js(amount - applied);
+  const problems = [];
+  if (applied > amount + 0.001) problems.push('Applied is more than the amount received');
+  if (overBill) problems.push('A bill gets more than its pending amount');
+  document.getElementById('pay-alloc-summary').innerHTML = `
+    <span>Received: <strong>₹${amount.toLocaleString()}</strong></span>
+    <span>Applied: <strong>₹${round2Js(applied).toLocaleString()}</strong></span>
+    <span>${credit < 0 ? 'Short' : 'Credit'}: <strong style="color:${credit < 0 ? 'var(--danger)' : 'inherit'}">₹${Math.abs(credit).toLocaleString()}</strong></span>
+    ${problems.length ? `<span style="color:var(--danger)">${problems.join(' · ')}</span>` : ''}`;
+  document.getElementById('pay-submit-btn').disabled = problems.length > 0;
+}
+
+async function submitPayment(e) {
+  e.preventDefault();
+  if (!validateFields([
+    { id: 'pay-customer', label: 'Customer',        required: true },
+    { id: 'pay-date',     label: 'Payment Date',    required: true, isDate: true },
+    { id: 'pay-amount',   label: 'Amount Received', required: true, min: 1 },
+  ])) return;
+  const id = document.getElementById('pay-id').value;
+  const body = readPaymentForm();
+  if (id) {
+    // Editing an existing payment saves directly.
+    try {
+      await apiFetch(`/api/payments/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      closeModal('modal-payment');
+      showToast('Payment updated!', 'success');
+      refreshAfterPaymentChange();
+    } catch (err) { showToast(err.message, 'error'); }
+    return;
+  }
+  // New payment: show the receipt message first; nothing is saved until the user chooses.
+  try {
+    const { mobile, text } = await buildPaymentReceipt(body);
+    pendingPayment = { body, mobile };
+    paymentReceiptDefault = text;
+    document.getElementById('wa-pay-msg').value = text;
+    document.getElementById('wa-pay-whatsapp-btn').disabled = !mobile.replace(/\D/g, '');
+    document.getElementById('wa-pay-mobile-hint').textContent = mobile
+      ? `Will be sent to ${mobile}`
+      : 'Customer has no mobile number, so WhatsApp is not available.';
+    openModal('modal-payment-wa');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function readPaymentForm() {
+  return {
+    customerId:  document.getElementById('pay-customer').value,
+    date:        document.getElementById('pay-date').value,
+    amount:      parseFloat(document.getElementById('pay-amount').value),
+    mode:        document.getElementById('pay-mode').value,
+    note:        document.getElementById('pay-note').value.trim(),
+    allocations: [...document.querySelectorAll('.pay-alloc-input')]
+      .map(i => ({ billId: i.dataset.billId, amount: parseFloat(i.value) || 0 }))
+      .filter(a => a.amount > 0),
+  };
+}
+
+// Receipt text for a payment that is about to be saved. Pending is what the
+// customer still owes after this payment is applied.
+async function buildPaymentReceipt(body) {
+  const customers = await apiFetch('/api/customers');
+  const customer  = customers.find(c => c.id === body.customerId);
+  const bills     = await apiFetch(`/api/bills?customerId=${body.customerId}`);
+  const applied   = round2Js(body.allocations.reduce((s, a) => s + a.amount, 0));
+  const credit    = round2Js(body.amount - applied);
+  const pendingBefore = bills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
+  const pendingAfter  = Math.max(0, round2Js(pendingBefore - applied));
+  const money = n => `₹${round2Js(n).toLocaleString()}`;
+  const operator = getSettings().operatorMobile;
+
+  const lines = [
+    `Dear ${customer ? customer.name : ''},`,
+    '',
+    `*Payment received* ✅`,
+    '',
+    `*Date:* ${fmtDate(body.date)}`,
+    `*Amount:* ${money(body.amount)}`,
+    `*Mode:* ${body.mode}`,
+  ];
+  if (body.note) lines.push(`*Note:* ${body.note}`);
+  if (body.allocations.length) {
+    lines.push('', '*Applied to:*');
+    body.allocations.forEach(a => {
+      const b = bills.find(x => x.id === a.billId);
+      lines.push(`• ${b ? billPeriodLabel(b.startDate, b.stopDate) : 'Bill'} — ${money(a.amount)}`);
+    });
+  }
+  if (credit > 0) lines.push('', `*Advance / credit:* ${money(credit)}`);
+  lines.push('', `*Balance pending:* ${money(pendingAfter)}`, '');
+  lines.push(operator ? `Contact: ${operator} | Thank you!` : 'For any queries, please contact us. Thank you!');
+  return { mobile: customer ? customer.mobile : '', text: lines.join('\n') };
+}
+
+let pendingPayment = null;        // { body, mobile } waiting for the user's choice
+let paymentReceiptDefault = '';   // generated text, used by "Reset"
+
+// Formatting buttons: wrap the selected text in WhatsApp markers.
+function wrapReceiptSelection(marker) { wrapSelection('wa-pay-msg', marker); }
+
+function wrapSelection(textareaId, marker) {
+  const ta = document.getElementById(textareaId);
+  const { selectionStart: a, selectionEnd: b, value } = ta;
+  const selected = value.slice(a, b) || 'text';
+  ta.value = value.slice(0, a) + marker + selected + marker + value.slice(b);
+  ta.focus();
+  ta.setSelectionRange(a + marker.length, a + marker.length + selected.length);
+}
+
+function resetReceiptText() {
+  document.getElementById('wa-pay-msg').value = paymentReceiptDefault;
+}
+
+// "Skip & Save" (sendWhatsApp = false) or "WhatsApp & Save".
+async function savePendingPayment(sendWhatsApp) {
+  if (!pendingPayment) return;
+  const { body, mobile } = pendingPayment;
+  const text = document.getElementById('wa-pay-msg').value;
+  const digits = (mobile || '').replace(/\D/g, '');
+  // Open WhatsApp first, while the click is still a user gesture (pop-up blockers).
+  if (sendWhatsApp && digits) {
+    window.open(`https://wa.me/91${digits}?text=${encodeURIComponent(text)}`, '_blank');
+  }
+  try {
+    await apiFetch('/api/payments', { method: 'POST', body: JSON.stringify(body) });
+    pendingPayment = null;
+    closeModal('modal-payment-wa');
+    closeModal('modal-payment');
+    showToast(sendWhatsApp ? 'Payment saved and WhatsApp opened.' : 'Payment saved.', 'success');
+    refreshAfterPaymentChange();
+  } catch (err) {
+    showToast(`Payment NOT saved: ${err.message}`, 'error');
+  }
+}
+
+// Payments change what every bill shows as paid, so refresh all views.
+function refreshAfterPaymentChange() {
+  loadPayments();
+  loadBills();
+  loadTrackerByCustomer();
+  refreshCustomerPage();
+  loadHome();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ALL PAYMENTS OF ONE CUSTOMER
+// ══════════════════════════════════════════════════════════════
+
+let customerPaymentsId    = null; // customer shown in the customer-payments modal
+let customerPaymentsCache = []; // that customer's payments, for CSV export
+
+async function openCustomerPayments(customerId) {
+  customerPaymentsId = customerId;
+  openModal('modal-customer-payments');
+  await refreshCustomerPaymentsModal();
+}
+
+async function refreshCustomerPaymentsModal() {
+  const customerId = customerPaymentsId;
+  if (!customerId || !document.getElementById('modal-customer-payments').classList.contains('open')) return;
+  const money = n => `₹${(n || 0).toLocaleString()}`;
+  try {
+    const [customers, payments, bills] = await Promise.all([
+      apiFetch('/api/customers'),
+      apiFetch(`/api/payments?customerId=${customerId}`),
+      apiFetch(`/api/bills?customerId=${customerId}`),
+    ]);
+    const c = customers.find(x => x.id === customerId);
+    document.getElementById('cp-title').textContent = `Payments · ${c ? c.name : ''}`;
+    document.getElementById('cp-sub').textContent   = c ? c.mobile : '';
+
+    customerPaymentsCache = payments;
+    const received = payments.reduce((s, p) => s + p.amount, 0);
+    const applied  = payments.reduce((s, p) => s + p.allocated, 0);
+    const credit   = payments.reduce((s, p) => s + p.credit, 0);
+    const pending  = bills.reduce((s, b) => s + (b.pendingAmount || 0), 0);
+    document.getElementById('cp-summary').innerHTML = `
+      <div class="summary-card sc-collected"><div class="sc-label">Received</div><div class="sc-value">${money(received)}</div></div>
+      <div class="summary-card sc-pending"><div class="sc-label">Pending</div><div class="sc-value">${money(pending)}</div></div>
+      <div class="summary-card"><div class="sc-label">Applied to bills</div><div class="sc-value">${money(applied)}</div></div>
+      <div class="summary-card"><div class="sc-label">Credit</div><div class="sc-value">${money(credit)}</div></div>`;
+
+    const tb = document.getElementById('cp-tbody');
+    tb.innerHTML = payments.length
+      ? payments.map(p => {
+          const applied = p.allocations.length
+            ? p.allocations.map(a => `${esc(billPeriodLabel(a.billStartDate, a.billStopDate))}: ₹${a.amount.toLocaleString()}`).join('<br>')
+            : '<span class="pay-hint">Not applied (credit)</span>';
+          return `<tr>
+            <td>${fmtDate(p.date)}</td>
+            <td>${money(p.amount)}</td>
+            <td>${applied}</td>
+            <td>${p.credit > 0 ? money(p.credit) : '—'}</td>
+            <td>${esc(p.mode || '')}${p.note ? `<br><span class="pay-hint">${esc(p.note)}</span>` : ''}</td>
+            <td><div class="actions-cell">
+              <button class="btn btn-icon btn-edit" title="Edit" onclick="editPaymentFromCustomer('${p.id}')">✏️</button>
+              <button class="btn btn-icon btn-del" title="Delete" onclick="confirmDelete('payment','${p.id}','${money(p.amount)} payment')">🗑</button>
+            </div></td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="6" class="empty-row">No payments recorded for this customer</td></tr>';
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function recordPaymentForCustomer() {
+  closeModal('modal-customer-payments');
+  openPaymentModal(null, customerPaymentsId);
+}
+
+function editPaymentFromCustomer(paymentId) {
+  closeModal('modal-customer-payments');
+  openPaymentModal(paymentId);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ALL PAYMENTS (filterable)
+// ══════════════════════════════════════════════════════════════
+
+let allPaymentsList = []; // every payment, loaded when the modal opens
+
+async function openAllPayments() {
+  try {
+    const [customers, payments] = await Promise.all([
+      apiFetch('/api/customers'),
+      apiFetch('/api/payments'),
+    ]);
+    allCustomers = customers;
+    allPaymentsList = payments;
+    fillCustomerSelect(document.getElementById('ap-customer'), customers, 'All customers');
+    openModal('modal-all-payments');
+    renderAllPayments();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function resetAllPaymentsFilters() {
+  ['ap-from', 'ap-to'].forEach(id => { document.getElementById(id).value = ''; });
+  ['ap-customer', 'ap-mode', 'ap-status'].forEach(id => { document.getElementById(id).value = ''; });
+  renderAllPayments();
+}
+
+function filteredAllPayments() {
+  const from     = document.getElementById('ap-from').value;
+  const to       = document.getElementById('ap-to').value;
+  const customer = document.getElementById('ap-customer').value;
+  const mode     = document.getElementById('ap-mode').value;
+  const status   = document.getElementById('ap-status').value;
+  return allPaymentsList.filter(p => {
+    if (from && p.date < from) return false;
+    if (to   && p.date > to)   return false;
+    if (customer && p.customerId !== customer) return false;
+    if (mode && p.mode !== mode) return false;
+    if (status === 'applied'   && !(p.credit <= 0.001 && p.allocated > 0)) return false;
+    if (status === 'credit'    && !(p.credit > 0.001)) return false;
+    if (status === 'unapplied' && p.allocated > 0) return false;
+    return true;
+  });
+}
+
+function renderAllPayments() {
+  const list = filteredAllPayments();
+  const money = n => `₹${round2Js(n).toLocaleString()}`;
+  const received = list.reduce((s, p) => s + p.amount, 0);
+  const applied  = list.reduce((s, p) => s + p.allocated, 0);
+  const credit   = list.reduce((s, p) => s + p.credit, 0);
+  document.getElementById('ap-summary').innerHTML = `
+    <div class="summary-card"><div class="sc-label">Payments</div><div class="sc-value">${list.length}</div></div>
+    <div class="summary-card sc-collected"><div class="sc-label">Received</div><div class="sc-value">${money(received)}</div></div>
+    <div class="summary-card"><div class="sc-label">Applied to bills</div><div class="sc-value">${money(applied)}</div></div>
+    <div class="summary-card sc-pending"><div class="sc-label">Credit</div><div class="sc-value">${money(credit)}</div></div>`;
+
+  const tb = document.getElementById('ap-tbody');
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty-row">No payments match these filters</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(p => {
+    const applied = p.allocations.length
+      ? p.allocations.map(a => `${esc(billPeriodLabel(a.billStartDate, a.billStopDate))}: ₹${a.amount.toLocaleString()}`).join('<br>')
+      : '<span class="pay-hint">Not applied (credit)</span>';
+    return `<tr>
+      <td>${fmtDate(p.date)}</td>
+      <td><strong>${esc(p.customerName)}</strong><br><span class="pay-hint">${esc(p.customerMobile || '')}</span></td>
+      <td>₹${p.amount.toLocaleString()}</td>
+      <td>${applied}</td>
+      <td>${p.credit > 0 ? `₹${p.credit.toLocaleString()}` : '—'}</td>
+      <td>${esc(p.mode || '')}${p.note ? `<br><span class="pay-hint">${esc(p.note)}</span>` : ''}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-icon btn-edit" title="Edit" onclick="editPaymentFromAll('${p.id}')">✏️</button>
+        <button class="btn btn-icon btn-del" title="Delete" onclick="confirmDelete('payment','${p.id}','₹${p.amount.toLocaleString()} payment')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function editPaymentFromAll(paymentId) {
+  closeModal('modal-all-payments');
+  openPaymentModal(paymentId);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PAYMENT REMINDER (WhatsApp, per customer with pending amount)
+// ══════════════════════════════════════════════════════════════
+
+let remindCustomerId = null;
+let remindMobile     = '';
+let remindDefault    = '';   // text generated from the current options
+// Which details go into the message. Kept between opens.
+const remindOpts = { perBill: true, arrears: true, lastPayment: true, contact: true };
+
+const REMIND_OPTION_LABELS = {
+  perBill:     'Each set: charges, paid, due',
+  arrears:     'Arrears line (where present)',
+  lastPayment: 'Last payment date',
+  contact:     'Operator contact line',
+};
+
+async function openRemind(customerId) {
+  remindCustomerId = customerId;
+  const box = document.getElementById('remind-options');
+  box.innerHTML = Object.keys(REMIND_OPTION_LABELS).map(k => `
+    <label class="remind-opt"><input type="checkbox" data-opt="${k}" ${remindOpts[k] ? 'checked' : ''}
+      onchange="setRemindOption('${k}', this.checked)" /> ${REMIND_OPTION_LABELS[k]}</label>`).join('');
+  try {
+    await regenerateRemind();
+    openModal('modal-remind');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function buildRemindText(customerId, opts) {
+  const customers = await apiFetch('/api/customers');
+  const c = customers.find(x => x.id === customerId);
+  if (!c) throw new Error('Customer not found');
+  const bills = (await apiFetch(`/api/bills?customerId=${customerId}`))
+    .filter(b => b.pendingAmount > 0)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const payments = await apiFetch(`/api/payments?customerId=${customerId}`); // newest first
+  const money = n => `₹${round2Js(n).toLocaleString()}`;
+  const total = round2Js(bills.reduce((s, b) => s + b.pendingAmount, 0));
+
+  const lines = [
+    `Dear ${c.name},`,
+    '',
+    `*Payment reminder* 🔔`,
+    `Your electricity bill has a pending balance.`,
+  ];
+  if (opts.perBill && bills.length) {
+    lines.push('');
+    bills.forEach(b => {
+      const charges = b.total || 0;
+      lines.push(`• ${billPeriodLabel(b.startDate, b.stopDate)}`);
+      lines.push(`   Charges ${money(charges)}${opts.arrears && b.arrears > 0 ? ` + Arrears ${money(b.arrears)}` : ''}`);
+      lines.push(`   Paid ${money(b.collectedAmount)} · *Due ${money(b.pendingAmount)}*`);
+    });
+  }
+  lines.push('', `*Total pending: ${money(total)}*`);
+  if (opts.lastPayment && payments.length) lines.push(`Last payment: ${fmtDate(payments[0].date)}`);
+  lines.push('', 'Please pay the pending amount at your earliest and share the receipt.');
+  const operator = getSettings().operatorMobile;
+  lines.push(opts.contact && operator ? `Contact: ${operator} | Thank you!` : 'Thank you!');
+  return { mobile: c.mobile || '', text: lines.join('\n') };
+}
+
+async function regenerateRemind() {
+  const d = await buildRemindText(remindCustomerId, remindOpts);
+  remindMobile  = d.mobile;
+  remindDefault = d.text;
+  document.getElementById('remind-msg').value = d.text;
+  const hasMobile = !!remindMobile.replace(/\D/g, '');
+  document.getElementById('remind-send-btn').disabled = !hasMobile;
+  document.getElementById('remind-hint').textContent = hasMobile
+    ? `Will be sent to ${remindMobile}`
+    : 'This customer has no mobile number, so WhatsApp is not available.';
+}
+
+// Changing a detail rebuilds the message. Edits made to the text are replaced,
+// so ask first if the text was changed by hand.
+async function setRemindOption(key, checked) {
+  const ta = document.getElementById('remind-msg');
+  if (ta.value !== remindDefault && !window.confirm('Replace your edits with the updated message?')) {
+    document.querySelector(`#remind-options input[data-opt="${key}"]`).checked = !checked;
+    return;
+  }
+  remindOpts[key] = checked;
+  try { await regenerateRemind(); } catch (e) { showToast(e.message, 'error'); }
+}
+
+function resetRemindText() {
+  document.getElementById('remind-msg').value = remindDefault;
+}
+
+function sendRemind() {
+  const digits = remindMobile.replace(/\D/g, '');
+  if (!digits) return;
+  const text = document.getElementById('remind-msg').value;
+  window.open(`https://wa.me/91${digits}?text=${encodeURIComponent(text)}`, '_blank');
 }
