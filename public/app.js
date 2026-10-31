@@ -2427,8 +2427,11 @@ function renderReceivables(rec) {
 
   const tb = document.getElementById('pay-customers-body');
   tb.innerHTML = rec.customers.length
-    ? rec.customers.map(c => `<tr><td><strong>${esc(c.customerName)}</strong></td><td>${esc(c.mobile || '')}</td><td>${c.openBills}</td><td>${money(c.pending)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="empty-row">No pending amounts 🎉</td></tr>';
+    ? rec.customers.map(c => `<tr>
+        <td><strong>${esc(c.customerName)}</strong></td><td>${esc(c.mobile || '')}</td><td>${c.openBills}</td><td>${money(c.pending)}</td>
+        <td><button class="btn btn-whatsapp btn-sm" onclick="openRemind('${c.customerId}')">📱 Remind</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="empty-row">No pending amounts 🎉</td></tr>';
 }
 
 function renderPaymentsTable(list) {
@@ -2653,8 +2656,10 @@ let pendingPayment = null;        // { body, mobile } waiting for the user's cho
 let paymentReceiptDefault = '';   // generated text, used by "Reset"
 
 // Formatting buttons: wrap the selected text in WhatsApp markers.
-function wrapReceiptSelection(marker) {
-  const ta = document.getElementById('wa-pay-msg');
+function wrapReceiptSelection(marker) { wrapSelection('wa-pay-msg', marker); }
+
+function wrapSelection(textareaId, marker) {
+  const ta = document.getElementById(textareaId);
   const { selectionStart: a, selectionEnd: b, value } = ta;
   const selected = value.slice(a, b) || 'text';
   ta.value = value.slice(0, a) + marker + selected + marker + value.slice(b);
@@ -2850,4 +2855,102 @@ function renderAllPayments() {
 function editPaymentFromAll(paymentId) {
   closeModal('modal-all-payments');
   openPaymentModal(paymentId);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PAYMENT REMINDER (WhatsApp, per customer with pending amount)
+// ══════════════════════════════════════════════════════════════
+
+let remindCustomerId = null;
+let remindMobile     = '';
+let remindDefault    = '';   // text generated from the current options
+// Which details go into the message. Kept between opens.
+const remindOpts = { perBill: true, arrears: true, lastPayment: true, contact: true };
+
+const REMIND_OPTION_LABELS = {
+  perBill:     'Each set: charges, paid, due',
+  arrears:     'Arrears line (where present)',
+  lastPayment: 'Last payment date',
+  contact:     'Operator contact line',
+};
+
+async function openRemind(customerId) {
+  remindCustomerId = customerId;
+  const box = document.getElementById('remind-options');
+  box.innerHTML = Object.keys(REMIND_OPTION_LABELS).map(k => `
+    <label class="remind-opt"><input type="checkbox" data-opt="${k}" ${remindOpts[k] ? 'checked' : ''}
+      onchange="setRemindOption('${k}', this.checked)" /> ${REMIND_OPTION_LABELS[k]}</label>`).join('');
+  try {
+    await regenerateRemind();
+    openModal('modal-remind');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function buildRemindText(customerId, opts) {
+  const customers = await apiFetch('/api/customers');
+  const c = customers.find(x => x.id === customerId);
+  if (!c) throw new Error('Customer not found');
+  const bills = (await apiFetch(`/api/bills?customerId=${customerId}`))
+    .filter(b => b.pendingAmount > 0)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const payments = await apiFetch(`/api/payments?customerId=${customerId}`); // newest first
+  const money = n => `₹${round2Js(n).toLocaleString()}`;
+  const total = round2Js(bills.reduce((s, b) => s + b.pendingAmount, 0));
+
+  const lines = [
+    `Dear ${c.name},`,
+    '',
+    `*Payment reminder* 🔔`,
+    `Your electricity bill has a pending balance.`,
+  ];
+  if (opts.perBill && bills.length) {
+    lines.push('');
+    bills.forEach(b => {
+      const charges = b.total || 0;
+      lines.push(`• ${billPeriodLabel(b.startDate, b.stopDate)}`);
+      lines.push(`   Charges ${money(charges)}${opts.arrears && b.arrears > 0 ? ` + Arrears ${money(b.arrears)}` : ''}`);
+      lines.push(`   Paid ${money(b.collectedAmount)} · *Due ${money(b.pendingAmount)}*`);
+    });
+  }
+  lines.push('', `*Total pending: ${money(total)}*`);
+  if (opts.lastPayment && payments.length) lines.push(`Last payment: ${fmtDate(payments[0].date)}`);
+  lines.push('', 'Please pay the pending amount at your earliest and share the receipt.');
+  const operator = getSettings().operatorMobile;
+  lines.push(opts.contact && operator ? `Contact: ${operator} | Thank you!` : 'Thank you!');
+  return { mobile: c.mobile || '', text: lines.join('\n') };
+}
+
+async function regenerateRemind() {
+  const d = await buildRemindText(remindCustomerId, remindOpts);
+  remindMobile  = d.mobile;
+  remindDefault = d.text;
+  document.getElementById('remind-msg').value = d.text;
+  const hasMobile = !!remindMobile.replace(/\D/g, '');
+  document.getElementById('remind-send-btn').disabled = !hasMobile;
+  document.getElementById('remind-hint').textContent = hasMobile
+    ? `Will be sent to ${remindMobile}`
+    : 'This customer has no mobile number, so WhatsApp is not available.';
+}
+
+// Changing a detail rebuilds the message. Edits made to the text are replaced,
+// so ask first if the text was changed by hand.
+async function setRemindOption(key, checked) {
+  const ta = document.getElementById('remind-msg');
+  if (ta.value !== remindDefault && !window.confirm('Replace your edits with the updated message?')) {
+    document.querySelector(`#remind-options input[data-opt="${key}"]`).checked = !checked;
+    return;
+  }
+  remindOpts[key] = checked;
+  try { await regenerateRemind(); } catch (e) { showToast(e.message, 'error'); }
+}
+
+function resetRemindText() {
+  document.getElementById('remind-msg').value = remindDefault;
+}
+
+function sendRemind() {
+  const digits = remindMobile.replace(/\D/g, '');
+  if (!digits) return;
+  const text = document.getElementById('remind-msg').value;
+  window.open(`https://wa.me/91${digits}?text=${encodeURIComponent(text)}`, '_blank');
 }

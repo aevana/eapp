@@ -200,8 +200,8 @@
       <h3 class="pay-subhead">Customers with pending amount</h3>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Customer</th><th>Mobile</th><th>Open Bills</th><th>Pending (₹)</th></tr></thead>
-          <tbody id="pay-customers-body"><tr><td colspan="4" class="empty-row">Loading…</td></tr></tbody>
+          <thead><tr><th>Customer</th><th>Mobile</th><th>Open Bills</th><th>Pending (₹)</th><th>Reminder</th></tr></thead>
+          <tbody id="pay-customers-body"><tr><td colspan="5" class="empty-row">Loading…</td></tr></tbody>
         </table>
       </div>
 
@@ -851,6 +851,29 @@
         <button type="button" class="btn btn-secondary" onclick="closeModal('modal-payment-wa')">← Back to edit</button>
         <button type="button" class="btn btn-secondary" onclick="savePendingPayment(false)">Skip &amp; Save</button>
         <button type="button" class="btn btn-whatsapp" id="wa-pay-whatsapp-btn" onclick="savePendingPayment(true)">📱 WhatsApp &amp; Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment reminder for one customer -->
+  <div id="modal-remind" class="modal-overlay" onclick="closeModalOutside(event,'modal-remind')">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>Payment reminder</h3>
+        <button class="modal-close" onclick="closeModal('modal-remind')">✕</button>
+      </div>
+      <div id="remind-options" class="remind-options"></div>
+      <div class="date-shortcuts" style="margin:.5rem 0">
+        <button type="button" class="date-chip" onclick="wrapSelection('remind-msg','*')"><strong>B</strong> Bold</button>
+        <button type="button" class="date-chip" onclick="wrapSelection('remind-msg','_')"><em>I</em> Italic</button>
+        <button type="button" class="date-chip" onclick="wrapSelection('remind-msg','~')"><s>S</s> Strike</button>
+        <button type="button" class="date-chip" onclick="resetRemindText()">↺ Reset text</button>
+      </div>
+      <textarea id="remind-msg" rows="12" style="font-size:.85rem;line-height:1.6;font-family:monospace;"></textarea>
+      <p class="pay-hint" id="remind-hint"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-remind')">Close</button>
+        <button type="button" class="btn btn-whatsapp" id="remind-send-btn" onclick="sendRemind()">📱 Send on WhatsApp</button>
       </div>
     </div>
   </div>
