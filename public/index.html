@@ -45,6 +45,7 @@
     <button class="tab-btn active" data-tab="home">🏠 Home</button>
     <button class="tab-btn" data-tab="customers">👤 Customers</button>
     <button class="tab-btn" data-tab="bills">📄 Bills</button>
+    <button class="tab-btn" data-tab="payments">💰 Payments</button>
     <button class="tab-btn" data-tab="tracker">📊 Tracker</button>
     <button class="tab-btn" data-tab="backup">💾 Backup</button>
     <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
@@ -159,6 +160,56 @@
           <tbody id="bills-tbody">
             <tr><td colspan="14" class="empty-row">Loading…</td></tr>
           </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════ PAYMENTS TAB ══════════════ -->
+    <section id="tab-payments" class="tab-section">
+      <div class="section-header">
+        <h2>Payments &amp; Receivables</h2>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="openPaymentModal()">+ Record Payment</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="pay-month" onchange="loadPayments()">
+          <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+        <input type="number" id="pay-year" min="2000" max="2100" style="width:6.5rem" onchange="loadPayments()" />
+        <select id="pay-customer-filter" onchange="loadPayments()">
+          <option value="">All customers</option>
+        </select>
+      </div>
+
+      <div class="summary-cards" id="pay-summary"></div>
+
+      <h3 class="pay-subhead">Outstanding by age <span class="pay-hint">(days since bill start)</span></h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Age</th><th>Bills</th><th>Pending (₹)</th></tr></thead>
+          <tbody id="pay-aging-body"><tr><td colspan="3" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <h3 class="pay-subhead">Customers with pending amount</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Customer</th><th>Mobile</th><th>Open Bills</th><th>Pending (₹)</th></tr></thead>
+          <tbody id="pay-customers-body"><tr><td colspan="4" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <h3 class="pay-subhead">Payments</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Customer</th><th>Amount (₹)</th><th>Applied To</th><th>Credit (₹)</th><th>Mode</th><th>Note</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="payments-tbody"><tr><td colspan="8" class="empty-row">Loading…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -654,6 +705,65 @@
     </div>
   </div>
 
+  <!-- Record / Edit Payment -->
+  <div id="modal-payment" class="modal-overlay" onclick="closeModalOutside(event,'modal-payment')">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="pay-modal-title">Record Payment</h3>
+        <button class="modal-close" onclick="closeModal('modal-payment')">✕</button>
+      </div>
+      <form id="form-payment" onsubmit="submitPayment(event)">
+        <input type="hidden" id="pay-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Customer <span class="req">*</span></label>
+            <select id="pay-customer" required onchange="onPaymentCustomerChange()">
+              <option value="">-- Select Customer --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Date <span class="req">*</span></label>
+            <input type="date" id="pay-date" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount Received (₹) <span class="req">*</span></label>
+            <input type="number" id="pay-amount" min="1" required oninput="updateAllocSummary()" />
+          </div>
+          <div class="form-group">
+            <label>Mode</label>
+            <select id="pay-mode">
+              <option>Cash</option><option>UPI</option><option>Bank transfer</option><option>Cheque</option><option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Note</label>
+          <input type="text" id="pay-note" placeholder="Optional…" />
+        </div>
+        <div class="form-group">
+          <label>Apply to bills</label>
+          <div class="date-shortcuts">
+            <button type="button" class="date-chip" onclick="autoAllocatePayment()">⚡ Auto-allocate (oldest first)</button>
+            <button type="button" class="date-chip" onclick="clearAllocations()">Clear</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Bill</th><th>Pending (₹)</th><th>Apply (₹)</th></tr></thead>
+              <tbody id="pay-alloc-body"><tr><td colspan="3" class="empty-row">Select a customer</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="calc-preview" id="pay-alloc-summary"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-payment')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="pay-submit-btn">Save Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Add Bill -->
   <div id="modal-add-bill" class="modal-overlay" onclick="closeModalOutside(event,'modal-add-bill')">
     <div class="modal modal-wide">
@@ -743,12 +853,12 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Collected Amount (₹)</label>
-            <input type="number" id="ub-collected" min="0" value="0" oninput="updateBillPreview()" />
+            <label>Paid So Far (₹) <span class="pay-hint">— add payments in 💰 Payments</span></label>
+            <input type="number" id="ub-collected" readonly />
           </div>
           <div class="form-group">
-            <label>Collected Date</label>
-            <input type="date" id="ub-collecteddate" />
+            <label>Last Payment Date</label>
+            <input type="date" id="ub-collecteddate" readonly />
           </div>
         </div>
         <div class="form-row">

@@ -142,6 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'settings') loadSettings();
       if (btn.dataset.tab === 'home')     loadHome();
+      if (btn.dataset.tab === 'payments') loadPayments();
     });
   });
 
@@ -845,7 +846,7 @@ function openUpdateBill(id) {
   document.getElementById('ub-qty').value        = b.quantity;
   document.getElementById('ub-perday').value     = b.perDayCharge;
   document.getElementById('ub-collected').value      = b.collectedAmount || 0;
-  document.getElementById('ub-collecteddate').value  = b.collectedDate || toDateStr(new Date());
+  document.getElementById('ub-collecteddate').value  = b.collectedDate || '';
   document.getElementById('ub-arrears').value        = b.arrears || 0;
   document.getElementById('ub-comments').value       = b.comments || '';
   openModal('modal-update-bill');
@@ -884,7 +885,6 @@ async function submitUpdateBill(e) {
     { id: 'ub-stopdate',  label: 'Stop Date',       isDate: true, afterField: 'ub-startdate', afterFieldLabel: 'Start Date' },
     { id: 'ub-qty',       label: 'Quantity',        required: true, min: 1 },
     { id: 'ub-perday',    label: 'Per Day Charge',  required: true, min: 1 },
-    { id: 'ub-collected', label: 'Collected Amount',min: 0 },
     { id: 'ub-arrears',   label: 'Arrears',         min: 0 },
   ])) return;
   const id   = document.getElementById('ub-id').value;
@@ -893,8 +893,6 @@ async function submitUpdateBill(e) {
     stopDate:        document.getElementById('ub-stopdate').value || null,
     quantity:        parseInt(document.getElementById('ub-qty').value),
     perDayCharge:    parseInt(document.getElementById('ub-perday').value),
-    collectedAmount: parseInt(document.getElementById('ub-collected').value) || 0,
-    collectedDate:   document.getElementById('ub-collecteddate').value || null,
     arrears:         parseFloat(document.getElementById('ub-arrears').value) || 0,
     comments:        document.getElementById('ub-comments').value.trim(),
   };
@@ -1953,7 +1951,7 @@ function confirmDelete(type, id, label) {
 }
 
 async function doDelete(type, id) {
-  const urls = { customer: `/api/customers/${id}`, bill: `/api/bills/${id}`, 'monthly-charge': `/api/monthly-charges/${id}` };
+  const urls = { customer: `/api/customers/${id}`, bill: `/api/bills/${id}`, 'monthly-charge': `/api/monthly-charges/${id}`, payment: `/api/payments/${id}` };
   try {
     await apiFetch(urls[type], { method: 'DELETE' });
     closeModal('modal-confirm-delete');
@@ -1961,6 +1959,7 @@ async function doDelete(type, id) {
     if (type === 'customer')       { loadCustomers(); loadTrackerByCustomer(); closeCustomerPage(); }
     if (type === 'bill')           { loadBills();     loadTrackerByCustomer(); refreshCustomerPage(); }
     if (type === 'monthly-charge') { loadBalanceSheet(); }
+    if (type === 'payment')        { refreshAfterPaymentChange(); }
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -1976,8 +1975,9 @@ async function backupAllData() {
     customers:  JSON.parse(localStorage.getItem('ebt_customers') || '[]'),
     bills:      JSON.parse(localStorage.getItem('ebt_bills')     || '[]'),
     charges:    JSON.parse(localStorage.getItem('ebt_charges')   || '[]'),
+    payments:   JSON.parse(localStorage.getItem('ebt_payments')  || '[]'),
   };
-  const total = backup.customers.length + backup.bills.length + backup.charges.length;
+  const total = backup.customers.length + backup.bills.length + backup.charges.length + backup.payments.length;
   if (!total) { showToast('No data to backup.', 'warning'); return; }
   const date     = new Date().toISOString().split('T')[0];
   const filename = `ebt-backup-${date}.json`;
@@ -2052,6 +2052,8 @@ function doRestoreBackup() {
     localStorage.setItem('ebt_customers', JSON.stringify(data.customers || []));
     localStorage.setItem('ebt_bills',     JSON.stringify(data.bills     || []));
     localStorage.setItem('ebt_charges',   JSON.stringify(data.charges   || []));
+    localStorage.setItem('ebt_payments',  JSON.stringify(data.payments  || []));
+    DB.migrate(); // converts paid amounts from older backups into payments
     window._pendingRestore = null;
     closeModal('modal-restore-confirm');
     showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.charges||[]).length} charges.`, 'success');
@@ -2223,12 +2225,20 @@ async function handleCSVImport(event, type) {
       const status    = iStatus    !== -1 ? (row[iStatus]?.trim()      || 'active') : 'active';
       try {
         const bill = await apiFetch('/api/bills', { method: 'POST', body: JSON.stringify({ customerId: customer.id, startDate, quantity: qty, perDayCharge: perDay, arrears }) });
-        if (stopDate || status === 'stopped' || collected > 0) {
+        if (stopDate || status === 'stopped') {
           const upd = {};
           if (stopDate) upd.stopDate = stopDate;
-          else if (status === 'stopped') upd.stopDate = toDateStr(new Date());
-          if (collected > 0) upd.collectedAmount = collected;
+          else upd.stopDate = toDateStr(new Date());
           await apiFetch(`/api/bills/${bill.id}`, { method: 'PUT', body: JSON.stringify(upd) });
+        }
+        if (collected > 0) {
+          // Paid amounts are recorded as payments, capped at what the bill owes.
+          const applied = Math.min(collected, bill.pendingAmount || 0);
+          await apiFetch('/api/payments', { method: 'POST', body: JSON.stringify({
+            customerId: customer.id, date: stopDate || toDateStr(new Date()), amount: collected,
+            mode: 'Imported', note: 'Imported from CSV',
+            allocations: applied > 0 ? [{ billId: bill.id, amount: applied }] : [],
+          }) });
         }
         imported++;
       } catch { skipped++; }
@@ -2305,4 +2315,241 @@ function showToast(msg, type = '') {
   t.className   = `toast show${type ? ' ' + type : ''}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PAYMENTS & RECEIVABLES
+// ══════════════════════════════════════════════════════════════
+
+let editingAlloc = {}; // billId -> amount the payment being edited already holds
+
+function paymentMonthParams() {
+  const now = new Date();
+  const m = document.getElementById('pay-month');
+  const y = document.getElementById('pay-year');
+  if (!m.dataset.ready) { // first visit: open on the current month
+    m.value = now.getMonth() + 1;
+    y.value = now.getFullYear();
+    m.dataset.ready = '1';
+  }
+  return { month: parseInt(m.value), year: parseInt(y.value) };
+}
+
+function billPeriodLabel(start, stop) {
+  if (!start) return 'Deleted bill';
+  return `${fmtDate(start)} → ${stop ? fmtDate(stop) : 'Running'}`;
+}
+
+async function loadPayments() {
+  const { month, year } = paymentMonthParams();
+  const customerId = document.getElementById('pay-customer-filter').value;
+  try {
+    const [receivables, payments, customers] = await Promise.all([
+      apiFetch(`/api/receivables?month=${month}&year=${year}`),
+      apiFetch(`/api/payments${customerId ? `?customerId=${customerId}` : ''}`),
+      apiFetch('/api/customers'),
+    ]);
+    allCustomers = customers;
+    fillCustomerSelect(document.getElementById('pay-customer-filter'), customers, 'All customers');
+    renderReceivables(receivables);
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    renderPaymentsTable(payments.filter(p => p.date.startsWith(prefix)));
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function fillCustomerSelect(sel, customers, firstLabel) {
+  const keep = sel.value;
+  sel.innerHTML = `<option value="">${firstLabel}</option>` +
+    customers.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.mobile)})</option>`).join('');
+  sel.value = keep;
+}
+
+function renderReceivables(rec) {
+  const s = rec.summary;
+  const money = n => `₹${(n || 0).toLocaleString()}`;
+  document.getElementById('pay-summary').innerHTML = `
+    <div class="summary-card sc-total"><div class="sc-label">Billed this month</div><div class="sc-value">${money(s.billedInMonth)}</div></div>
+    <div class="summary-card sc-collected"><div class="sc-label">Collected this month</div><div class="sc-value">${money(s.collectedInMonth)}</div></div>
+    <div class="summary-card sc-pending"><div class="sc-label">Outstanding now</div><div class="sc-value">${money(s.outstandingNow)}</div></div>
+    <div class="summary-card"><div class="sc-label">Customer credit</div><div class="sc-value">${money(s.customerCredit)}</div></div>`;
+
+  document.getElementById('pay-aging-body').innerHTML = rec.aging.map(a =>
+    `<tr><td>${a.label}</td><td>${a.bills}</td><td>${money(a.amount)}</td></tr>`).join('');
+
+  const tb = document.getElementById('pay-customers-body');
+  tb.innerHTML = rec.customers.length
+    ? rec.customers.map(c => `<tr><td><strong>${esc(c.customerName)}</strong></td><td>${esc(c.mobile || '')}</td><td>${c.openBills}</td><td>${money(c.pending)}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty-row">No pending amounts 🎉</td></tr>';
+}
+
+function renderPaymentsTable(list) {
+  const tb = document.getElementById('payments-tbody');
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty-row">No payments recorded for this month</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(p => {
+    const applied = p.allocations.length
+      ? p.allocations.map(a => `${esc(billPeriodLabel(a.billStartDate, a.billStopDate))}: ₹${a.amount.toLocaleString()}`).join('<br>')
+      : '<span class="pay-hint">Not applied (credit)</span>';
+    return `<tr>
+      <td>${fmtDate(p.date)}</td>
+      <td><strong>${esc(p.customerName)}</strong><br><span class="pay-hint">${esc(p.customerMobile || '')}</span></td>
+      <td>₹${p.amount.toLocaleString()}</td>
+      <td>${applied}</td>
+      <td>${p.credit > 0 ? `₹${p.credit.toLocaleString()}` : '—'}</td>
+      <td>${esc(p.mode || '')}</td>
+      <td>${esc(p.note || '')}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-icon btn-edit" title="Edit" onclick="openPaymentModal('${p.id}')">✏️</button>
+        <button class="btn btn-icon btn-del" title="Delete" onclick="confirmDelete('payment','${p.id}','₹${p.amount.toLocaleString()} payment')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openPaymentModal(id = null) {
+  try {
+    const customers = await apiFetch('/api/customers');
+    allCustomers = customers;
+    document.getElementById('form-payment').reset();
+    document.getElementById('pay-id').value = id || '';
+    document.getElementById('pay-modal-title').textContent = id ? 'Edit Payment' : 'Record Payment';
+    document.getElementById('pay-submit-btn').disabled = false;
+    fillCustomerSelect(document.getElementById('pay-customer'), customers, '-- Select Customer --');
+    editingAlloc = {};
+    if (id) {
+      const p = (await apiFetch('/api/payments')).find(x => x.id === id);
+      if (!p) throw new Error('Payment not found');
+      p.allocations.forEach(a => { editingAlloc[a.billId] = a.amount; });
+      document.getElementById('pay-customer').value = p.customerId;
+      document.getElementById('pay-date').value     = p.date;
+      document.getElementById('pay-amount').value   = p.amount;
+      document.getElementById('pay-mode').value     = p.mode || 'Cash';
+      document.getElementById('pay-note').value     = p.note || '';
+    } else {
+      document.getElementById('pay-date').value = toDateStr(new Date());
+    }
+    await loadPaymentBills();
+    openModal('modal-payment');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function onPaymentCustomerChange() {
+  editingAlloc = {}; // a different customer starts with nothing applied
+  loadPaymentBills();
+}
+
+async function loadPaymentBills() {
+  const customerId = document.getElementById('pay-customer').value;
+  const tb = document.getElementById('pay-alloc-body');
+  if (!customerId) {
+    tb.innerHTML = '<tr><td colspan="3" class="empty-row">Select a customer</td></tr>';
+    updateAllocSummary();
+    return;
+  }
+  try {
+    const bills = (await apiFetch(`/api/bills?customerId=${customerId}`))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    if (!bills.length) {
+      tb.innerHTML = '<tr><td colspan="3" class="empty-row">This customer has no bills</td></tr>';
+    } else {
+      tb.innerHTML = bills.map(b => {
+        // In edit mode, the amount this payment already holds is available again.
+        const own = editingAlloc[b.id] || 0;
+        const available = Math.max(0, round2Js(b.pendingAmount + own));
+        return `<tr>
+          <td>${esc(billPeriodLabel(b.startDate, b.stopDate))}<br>
+              <span class="pay-hint">${b.numberOfDays} days · ₹${b.perDayCharge}/day × ${b.quantity} · ${b.paymentStatus}</span></td>
+          <td>₹${available.toLocaleString()}</td>
+          <td><input type="number" min="0" step="1" class="pay-alloc-input" data-bill-id="${b.id}" data-max="${available}"
+                     value="${own || ''}" oninput="updateAllocSummary()" /></td>
+        </tr>`;
+      }).join('');
+    }
+  } catch (e) { showToast(e.message, 'error'); }
+  updateAllocSummary();
+}
+
+function round2Js(n) { return Math.round((n || 0) * 100) / 100; }
+
+async function autoAllocatePayment() {
+  const customerId = document.getElementById('pay-customer').value;
+  const amount     = parseFloat(document.getElementById('pay-amount').value) || 0;
+  if (!customerId || amount <= 0) { showToast('Select a customer and enter the amount first.', 'warning'); return; }
+  const id = document.getElementById('pay-id').value;
+  try {
+    const res = await apiFetch(`/api/payments/auto-allocate?customerId=${customerId}&amount=${amount}${id ? `&excludeId=${id}` : ''}`);
+    document.querySelectorAll('.pay-alloc-input').forEach(i => { i.value = ''; });
+    res.allocations.forEach(a => {
+      const el = document.querySelector(`.pay-alloc-input[data-bill-id="${a.billId}"]`);
+      if (el) el.value = a.amount;
+    });
+    updateAllocSummary();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function clearAllocations() {
+  document.querySelectorAll('.pay-alloc-input').forEach(i => { i.value = ''; });
+  updateAllocSummary();
+}
+
+function updateAllocSummary() {
+  const amount = parseFloat(document.getElementById('pay-amount').value) || 0;
+  let applied = 0, overBill = false;
+  document.querySelectorAll('.pay-alloc-input').forEach(i => {
+    const v = parseFloat(i.value) || 0;
+    const max = parseFloat(i.dataset.max) || 0;
+    applied += v;
+    const over = v > max + 0.001;
+    i.classList.toggle('pay-over', over);
+    if (over) overBill = true;
+  });
+  const credit = round2Js(amount - applied);
+  const problems = [];
+  if (applied > amount + 0.001) problems.push('Applied is more than the amount received');
+  if (overBill) problems.push('A bill gets more than its pending amount');
+  document.getElementById('pay-alloc-summary').innerHTML = `
+    <span>Received: <strong>₹${amount.toLocaleString()}</strong></span>
+    <span>Applied: <strong>₹${round2Js(applied).toLocaleString()}</strong></span>
+    <span>${credit < 0 ? 'Short' : 'Credit'}: <strong style="color:${credit < 0 ? 'var(--danger)' : 'inherit'}">₹${Math.abs(credit).toLocaleString()}</strong></span>
+    ${problems.length ? `<span style="color:var(--danger)">${problems.join(' · ')}</span>` : ''}`;
+  document.getElementById('pay-submit-btn').disabled = problems.length > 0;
+}
+
+async function submitPayment(e) {
+  e.preventDefault();
+  if (!validateFields([
+    { id: 'pay-customer', label: 'Customer',        required: true },
+    { id: 'pay-date',     label: 'Payment Date',    required: true, isDate: true },
+    { id: 'pay-amount',   label: 'Amount Received', required: true, min: 1 },
+  ])) return;
+  const id = document.getElementById('pay-id').value;
+  const allocations = [...document.querySelectorAll('.pay-alloc-input')]
+    .map(i => ({ billId: i.dataset.billId, amount: parseFloat(i.value) || 0 }))
+    .filter(a => a.amount > 0);
+  const body = {
+    customerId:  document.getElementById('pay-customer').value,
+    date:        document.getElementById('pay-date').value,
+    amount:      parseFloat(document.getElementById('pay-amount').value),
+    mode:        document.getElementById('pay-mode').value,
+    note:        document.getElementById('pay-note').value.trim(),
+    allocations,
+  };
+  try {
+    if (id) await apiFetch(`/api/payments/${id}`, { method: 'PUT',  body: JSON.stringify(body) });
+    else    await apiFetch('/api/payments',       { method: 'POST', body: JSON.stringify(body) });
+    closeModal('modal-payment');
+    showToast(id ? 'Payment updated!' : 'Payment recorded!', 'success');
+    refreshAfterPaymentChange();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// Payments change what every bill shows as paid, so refresh all views.
+function refreshAfterPaymentChange() {
+  loadPayments();
+  loadBills();
+  loadTrackerByCustomer();
+  refreshCustomerPage();
+  loadHome();
 }
