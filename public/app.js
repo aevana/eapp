@@ -2020,7 +2020,7 @@ async function backupAllData() {
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast(`Backup saved — ${backup.customers.length} customers, ${backup.bills.length} bills, ${backup.charges.length} charges.`, 'success');
+  showToast(`Backup saved — ${backup.customers.length} customers, ${backup.bills.length} bills, ${backup.payments.length} payments, ${backup.charges.length} charges.`, 'success');
 }
 
 function triggerRestoreBackup() {
@@ -2040,7 +2040,7 @@ async function handleRestoreFile(event) {
     window._pendingRestore = data;
     const d = document;
     d.getElementById('restore-count').textContent =
-      `${data.customers.length} customers · ${data.bills.length} bills · ${(data.charges || []).length} monthly charges`;
+      `${data.customers.length} customers · ${data.bills.length} bills · ${(data.payments || []).length} payments · ${(data.charges || []).length} monthly charges`;
     d.getElementById('restore-exported-at').textContent =
       data.exportedAt ? new Date(data.exportedAt).toLocaleString('en-IN') : 'Unknown';
     openModal('modal-restore-confirm');
@@ -2058,7 +2058,7 @@ function doRestoreBackup() {
     DB.migrate(); // converts paid amounts from older backups into payments
     window._pendingRestore = null;
     closeModal('modal-restore-confirm');
-    showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.charges||[]).length} charges.`, 'success');
+    showToast(`Restored: ${data.customers.length} customers, ${data.bills.length} bills, ${(data.payments||[]).length} payments, ${(data.charges||[]).length} charges.`, 'success');
     loadCustomers();
     loadBills();
     loadTrackerByCustomer();
@@ -2138,6 +2138,50 @@ function exportCustomersCSV() {
   const headers = ['#', 'Name', 'Mobile', 'Address', 'Registered On'];
   const rows = allCustomers.map((c, i) => [i + 1, c.name, c.mobile, c.address || '', fmtDate(c.createdAt)]);
   downloadCSV('customers.csv', buildCSV(headers, rows));
+}
+
+// ── Payments exports ─────────────────────────────────────────
+function paymentRowsForCSV(list) {
+  const headers = ['Date', 'Customer', 'Mobile', 'Amount', 'Applied To', 'Applied Amount', 'Credit', 'Mode', 'Note', 'Payment ID'];
+  const rows = list.map(p => [
+    p.date, p.customerName || '', p.customerMobile || '', p.amount,
+    p.allocations.map(a => `${billPeriodLabel(a.billStartDate, a.billStopDate)}: ${a.amount}`).join('; '),
+    p.allocated, p.credit, p.mode || '', p.note || '', p.id,
+  ]);
+  return { headers, rows };
+}
+
+function stampDate() { return toDateStr(new Date()); }
+
+function exportAllPaymentsCSV() {
+  const list = filteredAllPayments();
+  if (!list.length) { showToast('No payments to export.', 'warning'); return; }
+  const { headers, rows } = paymentRowsForCSV(list);
+  downloadCSV(`payments-${stampDate()}.csv`, buildCSV(headers, rows));
+}
+
+function exportCustomerPaymentsCSV() {
+  if (!customerPaymentsCache.length) { showToast('No payments to export.', 'warning'); return; }
+  const { headers, rows } = paymentRowsForCSV(customerPaymentsCache);
+  const name = (customerPaymentsCache[0].customerName || 'customer').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  downloadCSV(`payments-${name}-${stampDate()}.csv`, buildCSV(headers, rows));
+}
+
+// Receivables for the selected month: summary, aging, and who owes what.
+function exportReceivablesCSV() {
+  if (!lastReceivables) { showToast('Open the Payments tab first.', 'warning'); return; }
+  const r = lastReceivables;
+  const headers = ['Section', 'Name', 'Mobile', 'Open Bills', 'Amount (₹)'];
+  const rows = [
+    ['Summary', `Billed in ${r.month}/${r.year}`, '', '', r.summary.billedInMonth],
+    ['Summary', 'Collected in month', '', '', r.summary.collectedInMonth],
+    ['Summary', 'Applied to bills in month', '', '', r.summary.allocatedInMonth],
+    ['Summary', 'Outstanding now', '', '', r.summary.outstandingNow],
+    ['Summary', 'Customer credit', '', '', r.summary.customerCredit],
+    ...r.aging.map(a => ['Aging', a.label, '', a.bills, a.amount]),
+    ...r.customers.map(c => ['Pending by customer', c.customerName, c.mobile || '', c.openBills, c.pending]),
+  ];
+  downloadCSV(`receivables-${r.year}-${String(r.month).padStart(2, '0')}.csv`, buildCSV(headers, rows));
 }
 
 function exportBillsCSV() {
@@ -2342,6 +2386,8 @@ function billPeriodLabel(start, stop) {
   return `${fmtDate(start)} → ${stop ? fmtDate(stop) : 'Running'}`;
 }
 
+let lastReceivables = null; // last receivables payload, for CSV export
+
 async function loadPayments() {
   const { month, year } = paymentMonthParams();
   const customerId = document.getElementById('pay-customer-filter').value;
@@ -2353,6 +2399,7 @@ async function loadPayments() {
     ]);
     allCustomers = customers;
     fillCustomerSelect(document.getElementById('pay-customer-filter'), customers, 'All customers');
+    lastReceivables = receivables;
     renderReceivables(receivables);
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
     renderPaymentsTable(payments.filter(p => p.date.startsWith(prefix)));
@@ -2561,7 +2608,8 @@ function refreshAfterPaymentChange() {
 //  ALL PAYMENTS OF ONE CUSTOMER
 // ══════════════════════════════════════════════════════════════
 
-let customerPaymentsId = null; // customer shown in the customer-payments modal
+let customerPaymentsId    = null; // customer shown in the customer-payments modal
+let customerPaymentsCache = []; // that customer's payments, for CSV export
 
 async function openCustomerPayments(customerId) {
   customerPaymentsId = customerId;
@@ -2583,6 +2631,7 @@ async function refreshCustomerPaymentsModal() {
     document.getElementById('cp-title').textContent = `Payments · ${c ? c.name : ''}`;
     document.getElementById('cp-sub').textContent   = c ? c.mobile : '';
 
+    customerPaymentsCache = payments;
     const received = payments.reduce((s, p) => s + p.amount, 0);
     const applied  = payments.reduce((s, p) => s + p.allocated, 0);
     const credit   = payments.reduce((s, p) => s + p.credit, 0);

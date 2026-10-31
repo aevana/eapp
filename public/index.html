@@ -170,6 +170,7 @@
         <h2>Payments &amp; Receivables</h2>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
           <button class="btn btn-secondary" onclick="openAllPayments()">📋 All Payments</button>
+          <button class="btn btn-secondary" onclick="exportReceivablesCSV()">📥 Receivables CSV</button>
           <button class="btn btn-primary" onclick="openPaymentModal()">+ Record Payment</button>
         </div>
       </div>
@@ -731,6 +732,7 @@
           <option value="unapplied">Not applied to any bill</option>
         </select>
         <button type="button" class="btn btn-secondary btn-sm" onclick="resetAllPaymentsFilters()">Reset</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="exportAllPaymentsCSV()">📥 Export CSV</button>
       </div>
       <div class="summary-cards" id="ap-summary" style="margin:1rem 0"></div>
       <div class="table-wrap">
@@ -763,6 +765,7 @@
         </table>
       </div>
       <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="exportCustomerPaymentsCSV()">📥 Export CSV</button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('modal-customer-payments')">Close</button>
         <button type="button" class="btn btn-primary" onclick="recordPaymentForCustomer()">+ Record Payment</button>
       </div>
